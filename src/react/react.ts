@@ -4,7 +4,12 @@ export namespace react {
     const hooks: Hook[] = [];
     let index = 0;
 
+    let currentFiber: Fiber;
+
+    // see https://github.com/facebook/react/blob/5f06576f51ece88d846d01abd2ddd575827c6127/packages/react-reconciler/src/ReactFiberHooks.js#L243
     export const useState = <T, >(initialValue: T): [T, (value: T | ((current: T) => T)) => void] => {
+
+        // TODO resolve current fiber here?
         const currentIndex = index++;
         if (hooks.length === currentIndex) {
             hooks.push(initialValue)
@@ -61,45 +66,93 @@ export namespace react {
         update();
     }
 
+    let oldVirtualDom = undefined;
     export const update = () => {
         index = 0;
+        currentElementIndex = 0;
         const newElementTree = rootElement();
-        const div = document.createElement("div");
+        if (oldVirtualDom === undefined) {
+            const div = document.createElement("div");
 
-        generateDom(newElementTree, div);
-        domRootElement.replaceChildren(div);
+            const rootFiber = generateDom(newElementTree, div);
+            domRootElement.replaceChildren(div);
+            oldVirtualDom = newElementTree;
+        } else {
+            let delta = [];
+            const treeDiff = diff(oldVirtualDom, newElementTree, delta);
+            updateDom(treeDiff);
+        }
+    }
+
+    const diff = (treeA, treeB, delta) => {
+        if (treeA.type !== treeB.type) {
+            delta.push(treeB);
+        } else {
+            //const propsDiff =
+        }
+    }
+
+    const updateDom = (virtualDomDiff) => {
+
     }
 
     let domRootElement: HTMLElement;
-    const generateDom = (component, tree: HTMLElement) => {
+    let currentElementIndex = 0;
+    const generateDom = (component, tree: HTMLElement): Fiber => {
         if (component.type) {
             if (typeof component.type === "function") {
                 const reactElement = component.type(component.props);
-                generateDom(reactElement, tree);
+                const fiber: Fiber = {
+                    elementType: "Element",
+                    elementIndex: currentElementIndex++,
+                    component: component.type,
+                    children: []
+                }
+                fiber.children!.push(generateDom(reactElement, tree));
+                return fiber;
             } else {
                 const element = document.createElement(component.type)
+                const fiber: Fiber = {
+                    elementType: component.type,
+                    elementIndex: currentElementIndex++,
+                    component: component.type,
+                    children: []
+                }
+
                 if (component.type === "button") {
                     element.addEventListener('click', component.props.onClick);
                 }
                 if (component.type === "input") {
                     element.value = component.props.value;
+                    element.oninput = component.props.onChange;
                 }
                 tree.appendChild(element);
                 if (component.props?.children) {
                     if (Array.isArray(component.props.children)) {
-                        component.props.children.forEach(children => generateDom(children, element));
+                        component.props.children.map(children => fiber.children!.push(generateDom(children, element)));
                     } else {
-                        generateDom(component.props.children, element)
+                        fiber.children!.push(generateDom(component.props.children, element));
                     }
                 }
+                return fiber;
             }
         } else {
             const text = document.createTextNode(component);
+            const fiber: Fiber = {elementType: "Text", elementIndex: currentElementIndex++, component: component.type}
             tree.appendChild(text);
+            return fiber;
         }
     }
 
     export const createRoot = (root: HTMLElement) => {
         domRootElement = root;
+    }
+
+    interface Fiber {
+        domElement?: HTMLElement;
+        component: Function;
+        children?: Fiber[];
+        elementIndex: number;
+        elementType: any;
     }
 }
