@@ -87,7 +87,7 @@ const reconcileSingleElement = (returnFiber: Fiber, currentFirstChild: Fiber | n
     return newFiber;
 }
 
-const reconcileChildrenArray = (returnFiber: Fiber, currentFirstChild: Fiber | null, newChildren: any[]): Fiber => {
+const reconcileChildrenArray = (returnFiber: Fiber, currentFirstChild: Fiber | null, newChildren: any[]): Fiber | null => {
     // TODO Check for known keys using set/ sort if keys have different order
     // TODO Delete child if required
     // TODO mapRemainingChildren
@@ -104,10 +104,6 @@ const reconcileChildrenArray = (returnFiber: Fiber, currentFirstChild: Fiber | n
                 prevFiber.sibling = prevFiber = newFiber;
             }
         }
-    }
-
-    if (firstChild === null) {
-        throw Error("Oh no :(");
     }
 
     return firstChild;
