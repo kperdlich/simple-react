@@ -1,20 +1,37 @@
-import _ from "lodash";
-import {updateFunctionalComponent, updateHostComponent, updateHostRoot, updateHostText} from "./recounciler";
+import {
+    attemptEarlyBailoutIfNoScheduledUpdate,
+    updateFunctionalComponent,
+    updateHostComponent,
+    updateHostRoot,
+    updateHostText
+} from "./recounciler";
 import {completeUnitOfWork} from "./CompleteWork";
 import {commitRoot} from "./CommitPass";
+
+export type RootFiber = {
+    containerInfo: HTMLElement;
+    current: Fiber | null;
+    finishedWork: Fiber | null;
+}
+
+export type HostState = {
+    element: any;
+}
 
 export type Fiber = {
     type: any,
     return: Fiber | null,
     child: Fiber | null,
     sibling: Fiber | null
+    childUpdates: boolean, // childLane
+    updates: boolean, // lanes
     pendingProps: any | null,
     memoizedProps: any | null,
-    memoizedState: Hook | null,
+    memoizedState: Hook | HostState | null,
     key: string | null,
     tag: number | null;
-    stateNode: Node | null; // stateNode
-    updateQueue?: any,
+    stateNode: Node | null;
+    updateQueue: HostState | null,
     flags: number;
     alternate: Fiber | null,
 }
@@ -39,12 +56,11 @@ type Hook = {
 }
 
 export const FunctionalComponent = 0;
-export const HostRoot = 1;
-export const HostComponent = 2;
-export const HostText = 3;
+export const HostRoot = 3;
+export const HostComponent = 5;
+export const HostText = 6;
 
-let rootElement: HTMLElement;
-let workInProgressRootFiber: Fiber | null;
+let rootFiber: RootFiber;
 
 let currentFiber: Fiber;
 let firstCurrentFiberHook: Hook | null = null;
@@ -52,24 +68,28 @@ let currentHook: Hook | null = null;
 
 let nextUnitOfWork: Fiber | null = null;
 
+let isInitialRender = false; // Hack to workaround baily out logic
 export const createRoot = (root: HTMLElement) => {
-    rootElement = root;
+    rootFiber = createRootFiber(root);
 }
 
 export const render = (startComponent: () => JSX.Element) => {
-    workInProgressRootFiber = createRootFiber();
-    const startNode = createFiberFromTypeAndProps(startComponent, null, null);
-    startNode.return = workInProgressRootFiber;
-    workInProgressRootFiber.child = startNode;
-    rerender();
-    /*console.log(rootElement);
+    const host = createFiberFromTypeAndProps(null, null, null);
+    host.tag = HostRoot;
 
-    rootFiber = createRootFiber();
-    rootFiber.child = generateFiberTree(startComponent());
-    rootFiber.child.return = rootFiber;
+    const hostAlternate = createFiberFromTypeAndProps(null, null, null);
+    host.tag = HostRoot;
+    host.updateQueue = {element: {$$typeof: "Symbol(react.element)", type: startComponent, props: {}, key: null}}
 
-    console.log(rootFiber);
-    createInitialTree(rootFiber, rootElement);*/
+    host.alternate = hostAlternate;
+    hostAlternate.alternate = host;
+
+    rootFiber.current = host;
+
+    // Workaround for render so that we not bail out early (react uses render lane for this)
+    isInitialRender = true;
+    rerender(host);
+    isInitialRender = false;
     /**
      * TODO
      * Generate new fiber tree and create diff
@@ -78,30 +98,21 @@ export const render = (startComponent: () => JSX.Element) => {
      */
 }
 
-const cloneFiber = (fiber: Fiber): Fiber => {
-    return {
-        ...fiber,
-    };
-}
-
-const reconcileChildren = (current: Fiber | null, jsx: any) => {
-    if (current === null) {
-        // Add new element / placement
-    } else if (current.type === jsx.type || current.key === jsx.key) {
-        if (Array.isArray(jsx.props?.children)) {
-            jsx.props.children.forEach((childJsx) => reconcileChildren(current.child, childJsx));
-        } else if (!_.isEqual(current.pendingProps, jsx.props.children)) {
-            console.log("Prop Change");
-            // TODO Add Effect
-        }
-    } else {
-        // Deleted
-        console.log("Child change ");
-    }
-}
-
 const beginWork = (current: Fiber | null, workInProgress: Fiber): Fiber | null => {
     // TODO Reset lanes on workInProgress
+
+    if (current !== null) {
+        if (!isInitialRender) {
+            const oldProps = current.memoizedProps;
+            const newProps = workInProgress.pendingProps;
+
+            // Updated by state changes
+            if (!current.updates && oldProps === newProps) {
+                return attemptEarlyBailoutIfNoScheduledUpdate(current, workInProgress);
+            }
+        }
+    }
+
     switch (workInProgress.tag) {
         case FunctionalComponent:
             return updateFunctionalComponent(current, workInProgress);
@@ -117,9 +128,6 @@ const beginWork = (current: Fiber | null, workInProgress: Fiber): Fiber | null =
 }
 
 
-
-
-
 const performUnitOfWork = (unitOfWork: Fiber): Fiber | null => {
     const current = unitOfWork.alternate;
     let next = beginWork(current, unitOfWork);
@@ -133,120 +141,21 @@ const performUnitOfWork = (unitOfWork: Fiber): Fiber | null => {
     return next;
 }
 
-const rerender = () => {
-    nextUnitOfWork = workInProgressRootFiber!.child;
+const rerender = (work: Fiber) => {
+    nextUnitOfWork = work;
     while (nextUnitOfWork !== null) {
         nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
     }
 
-    if (workInProgressRootFiber === null) {
-        throw Error("workInProgressRootFiber.stateNode === null");
+    if (rootFiber.current === null) {
+        throw Error("rootFiber.current === null");
     }
 
-    commitRoot(workInProgressRootFiber, rootElement);
-}
-
-const createInitialTree = (fiber: Fiber, element: HTMLElement) => {
-    switch (fiber.tag) {
-        case HostRoot:
-        case FunctionalComponent:
-            if (fiber.child) {
-                createInitialTree(fiber.child, element);
-            }
-            if (fiber.sibling) {
-                createInitialTree(fiber.sibling, element);
-            }
-            break;
-        case HostComponent:
-            const instance = createInstanceFromFiber(fiber);
-            element.appendChild(instance);
-            if (fiber.child) {
-                createInitialTree(fiber.child, instance);
-            }
-            if (fiber.sibling) {
-                createInitialTree(fiber.sibling, element);
-            }
-            break;
-        case HostText:
-            const text = createTextNodeFromFiber(fiber);
-            element.appendChild(text);
-            break;
+    commitRoot(rootFiber.current, rootFiber);
+    if (rootFiber.current.alternate === null) {
+        throw Error("rootFiber.current.alternate === null");
     }
-}
-
-const createTextNodeFromFiber = (fiber: Fiber): Text => {
-    const element = document.createTextNode(fiber.memoizedProps.children);
-    fiber.stateNode = element;
-    return element;
-}
-
-const createInstanceFromFiber = (fiber: Fiber): HTMLElement => {
-    // TODO Dynamic setAttribute?
-    const element = document.createElement(fiber.type);
-    switch (fiber.type) {
-        case "input": // TODO FIX pending to memo
-            element.value = fiber.pendingProps.value;
-            element.oninput = fiber.pendingProps.onChange;
-            break;
-        case "button":
-            element.addEventListener('click', fiber.pendingProps.onClick);
-            break;
-        case "div":
-            if (fiber.pendingProps?.className) {
-                element.className = fiber.pendingProps.className;
-            }
-            break;
-    }
-    fiber.stateNode = element;
-    return element;
-}
-
-const generateFiberTree = (jsx: JSX.Element): Fiber => {
-    const key = jsx.key?.toString() || null;
-    const fiber = createFiberFromTypeAndProps(jsx.type, key, jsx.props);
-
-    if (jsx.type) {
-        if (typeof jsx.type === "function") {
-            fiber.tag = FunctionalComponent;
-            prepareToUseHooks(fiber);
-            const childJsx = jsx.type(jsx.props);
-            fiber.child = generateFiberTree(childJsx);
-            fiber.child.return = fiber;
-        } else {
-            fiber.tag = HostComponent;
-            if (jsx.props?.children) {
-                if (Array.isArray(jsx.props.children)) {
-                    const siblings: Fiber[] = jsx.props.children.map((c) => generateFiberTree(c));
-                    const firstSibling = siblings[0];
-                    fiber.child = firstSibling;
-                    firstSibling.return = fiber;
-                    siblings.reduce((prev, current, _) => {
-                        prev.sibling = current;
-                        current.return = fiber;
-                        return current;
-                    });
-                } else {
-                    const childFiber = generateFiberTree(jsx.props.children);
-                    fiber.child = childFiber;
-                    childFiber.return = fiber;
-                }
-            }
-        }
-    } else {
-        fiber.tag = HostText;
-        fiber.memoizedProps = {
-            children: jsx
-        }
-    }
-
-    return fiber;
-}
-
-const copyIntoFiberFromTypeAndProps = (fiber: Fiber, type: any, key: string | null, pendingProps: any): Fiber => {
-    fiber.type = type;
-    fiber.key = key;
-    fiber.pendingProps = pendingProps;
-    return fiber;
+    rootFiber.current.alternate.child = rootFiber.current.child;
 }
 
 export const createFiberFromText = (content: string | number): Fiber => {
@@ -255,6 +164,8 @@ export const createFiberFromText = (content: string | number): Fiber => {
         pendingProps: content,
         key: null,
         child: null,
+        childUpdates: false,
+        updates: false,
         memoizedProps: null,
         memoizedState: null,
         sibling: null,
@@ -263,6 +174,7 @@ export const createFiberFromText = (content: string | number): Fiber => {
         alternate: null,
         flags: NoFlags,
         stateNode: null,
+        updateQueue: null,
     };
 }
 
@@ -276,6 +188,8 @@ export const createFiberFromTypeAndProps = (type: any, key: string | null, pendi
         type: type,
         pendingProps: pendingProps,
         key: key,
+        childUpdates: false,
+        updates: false,
         child: null,
         memoizedProps: null,
         memoizedState: null,
@@ -285,33 +199,30 @@ export const createFiberFromTypeAndProps = (type: any, key: string | null, pendi
         alternate: null,
         flags: NoFlags,
         stateNode: null,
+        updateQueue: null,
     };
 }
 
-const createRootFiber = (): Fiber => {
+const createRootFiber = (root: HTMLElement): RootFiber => {
     return {
-        type: null,
-        pendingProps: null,
-        key: null,
-        child: null,
-        memoizedProps: null,
-        memoizedState: null,
-        sibling: null,
-        return: null,
-        tag: HostRoot,
-        alternate: null,
-        flags: NoFlags,
-        stateNode: null,
+        containerInfo: root,
+        current: null,
+        finishedWork: null,
     };
 }
 
-const scheduleUpdate = () => {
-    rerender();
+const scheduleUpdate = (fiber: Fiber) => {
+    markUpdateLaneFromFiberToRoot(fiber);
+
+    if (rootFiber.current === null) {
+        throw Error("rootFiber.current === null");
+    }
+    rerender(rootFiber.current);
 };
 
 export const prepareToUseHooks = (fiber: Fiber) => {
     currentFiber = fiber;
-    firstCurrentFiberHook = currentFiber.memoizedState;
+    firstCurrentFiberHook = currentFiber.memoizedState as Hook;
     currentHook = null;
 }
 
@@ -347,9 +258,17 @@ export const useState = <T>(initialValue: T): [T, (value: T | ((current: T) => T
             ? newValue(hook.state)
             : newValue;
         //currentFiber.flags |= Update; // TODO Bubble up child lane change
-        scheduleUpdate();
+        scheduleUpdate(currentFiber);
     }
 
     return [hook.state as T, setState];
 }
 
+const markUpdateLaneFromFiberToRoot = (fiber: Fiber) => {
+    fiber.updates = true;
+    let parent = fiber.return;
+    while (parent !== null) {
+        parent.childUpdates = true;
+        parent = parent.return;
+    }
+}

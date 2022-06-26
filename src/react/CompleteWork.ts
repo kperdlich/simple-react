@@ -1,4 +1,4 @@
-import {Fiber, FunctionalComponent, HostComponent, HostText} from "./DomRenderer";
+import {Fiber, FunctionalComponent, HostComponent, HostText, Update} from "./DomRenderer";
 import {appendAllChildren, createElement, createTextInstance, setInitialDOMProperties} from "./DOMComponent";
 
 export const completeUnitOfWork = (unitOfWork: Fiber): Fiber | null => {
@@ -47,7 +47,10 @@ export const completeWork = (current: Fiber | null, workInProgress: Fiber): Fibe
         case HostText:
             const newText = newProps;
             if (current !== null && workInProgress.stateNode !== null) {
-                // TODO Update
+                const oldText = current.memoizedProps;
+                if (newText !== oldText) {
+                    markUpdate(workInProgress);
+                }
             } else {
                 workInProgress.stateNode = createTextInstance(
                     newText,
@@ -58,4 +61,8 @@ export const completeWork = (current: Fiber | null, workInProgress: Fiber): Fibe
     }
     return null;
 
+}
+
+const markUpdate = (workInProgress: Fiber) => {
+    workInProgress.flags |= Update;
 }
