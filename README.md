@@ -1,3 +1,12 @@
+TODO
+- Add component deletion
+- Trigger effects
+- Memo Component?
+- Remove react dep and use JSX directly
+- Prepare demo project
+- Create Miro Board with test data flow
+- Check scheduler
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
