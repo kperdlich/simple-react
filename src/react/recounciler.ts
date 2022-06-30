@@ -36,7 +36,7 @@ export const updateHostText = (current: Fiber | null, workInProgress: Fiber): Fi
 
 export const updateHostRoot = (current: Fiber | null, workInProgress: Fiber): Fiber | null => {
     if (workInProgress.updateQueue) {
-        const nextState = workInProgress.updateQueue;
+        const nextState = workInProgress.updateQueue as HostState;
         workInProgress.memoizedState = nextState;
         workInProgress.updateQueue = null;
 

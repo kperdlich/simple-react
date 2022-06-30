@@ -1,4 +1,5 @@
 import {Fiber, HostComponent, HostText, Placement, RootFiber, Update} from "./DomRenderer";
+import {setValueForProperty} from "./DOMComponent";
 
 export const commitRoot = (workInProgressRoot: Fiber, root: RootFiber) => {
     // TODO Trigger commit effects recursive
@@ -13,6 +14,15 @@ const commitMutationEffectsOnFiber = (finishedWork: Fiber, root: RootFiber) => {
             recursivelyTraverseMutationEffects(root, finishedWork);
             if (flags & Placement) {
                 insertOrAppendPlacementNodeIntoContainer(finishedWork, root.containerInfo);
+            } else if (flags & Update) {
+                const newProps = finishedWork.memoizedProps;
+                const oldProps = finishedWork.alternate ? finishedWork.alternate.memoizedProps : newProps; // Will bail out later
+                const type = finishedWork.type;
+                const updatePayload = finishedWork.updateQueue;
+                finishedWork.updateQueue = null;
+                if (updatePayload) {
+                    updateDOMProperties(finishedWork.stateNode as HTMLElement, updatePayload as any, type, oldProps, newProps);
+                }
             }
             return;
         case HostText:
@@ -62,5 +72,14 @@ const insertOrAppendPlacementNodeIntoContainer = (node: Fiber, parent: HTMLEleme
                 sibling = sibling.sibling;
             }
         }
+    }
+}
+
+const updateDOMProperties = (domElement: HTMLElement, updatePayload: any[], type: string, oldProps: any, newProps: any) => {
+    for (let i = 0; i < updatePayload.length; i += 2) {
+        const propKey = updatePayload[i];
+        const propValue = updatePayload[i + 1];
+
+        setValueForProperty(domElement, propKey, propValue);
     }
 }

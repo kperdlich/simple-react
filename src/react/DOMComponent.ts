@@ -1,6 +1,6 @@
 import {Fiber, HostComponent, HostText} from "./DomRenderer";
 
-const CHILDREN = "children";
+export const CHILDREN = "children";
 
 export const appendAllChildren = (parent: HTMLElement, workInProgress: Fiber) => {
     let node = workInProgress.child;
@@ -32,28 +32,33 @@ const setTextContent = (node: HTMLElement, text: string) => {
     node.textContent = text;
 }
 
-const setValueForProperty = (node: HTMLElement, name: string, value: any) => {
-    // TODO Map react props to HTML props
-    let attributeName = name;
-    switch (name) {
-        case "className":
-            attributeName = "class";
-            break;
-        case "onChange":
-            node.oninput = value;
-            return;
-        case "onClick":
-            node.onclick = value;
-            return;
-    }
+export const setValueForProperty = (node: HTMLElement, name: string, value: any | null) => {
+    if (value === null) {
+        node.removeAttribute(name);
+    } else {
+        // TODO Map react props to HTML props
+        let attributeName = name;
+        switch (name) {
+            case "className":
+                attributeName = "class";
+                break;
+            case "onChange":
+                node.oninput = value;
+                return;
+            case "onClick":
+                node.onclick = value;
+                return;
+        }
 
-    node.setAttribute(attributeName, value)
+        node.setAttribute(attributeName, value)
+    }
 }
 
 export const setInitialDOMProperties = (tag: number, domElement: HTMLElement, nextProps: any) => {
     for (let propKey in nextProps) {
         const prop = nextProps[propKey];
 
+        // React uses children prop to inline text in e.g. spans, but we ignore that optimization
         if (propKey === CHILDREN) {
             /*if (typeof prop === "string") {
                 setTextContent(domElement, prop);

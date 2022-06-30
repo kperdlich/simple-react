@@ -30,8 +30,8 @@ export type Fiber = {
     memoizedState: Hook | HostState | null,
     key: string | null,
     tag: number | null;
-    stateNode: Node | null;
-    updateQueue: HostState | null,
+    stateNode: HTMLElement | Text | null;
+    updateQueue: HostState | null | any[],
     flags: number;
     alternate: Fiber | null,
 }

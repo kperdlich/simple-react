@@ -1,5 +1,5 @@
 import {Fiber, FunctionalComponent, HostComponent, HostText, Update} from "./DomRenderer";
-import {appendAllChildren, createElement, createTextInstance, setInitialDOMProperties} from "./DOMComponent";
+import {appendAllChildren, CHILDREN, createElement, createTextInstance, setInitialDOMProperties} from "./DOMComponent";
 
 export const completeUnitOfWork = (unitOfWork: Fiber): Fiber | null => {
     let completedWork: Fiber | null = unitOfWork;
@@ -34,10 +34,18 @@ export const completeWork = (current: Fiber | null, workInProgress: Fiber): Fibe
         case HostComponent:
             const type = workInProgress.type;
             if (current !== null && workInProgress.stateNode !== null) {
-                // Update DOM Instance
+                // Update DOM Element
+                const oldProps = current.memoizedProps;
+                // Check for bailout
+                if (oldProps !== newProps) {
+                    const updatePayload = diffProperties(workInProgress.stateNode as HTMLElement, workInProgress.type, oldProps, newProps);
+                    workInProgress.updateQueue = updatePayload;
+                    if (updatePayload) {
+                        markUpdate(workInProgress);
+                    }
+                }
             } else {
-                // TODO Create & Append DOM Instance
-                // TODO Set State node
+                // Create DOM Element
                 const instance = createElement(type, newProps);
                 appendAllChildren(instance, workInProgress);
                 workInProgress.stateNode = instance;
@@ -61,6 +69,37 @@ export const completeWork = (current: Fiber | null, workInProgress: Fiber): Fibe
     }
     return null;
 
+}
+
+const diffProperties = (domElement: HTMLElement, type: string, oldProps: any, newProps: any): any[] | null => {
+    let updatePayload: any[] | null = null;
+
+    // Check for deleted props
+    for (const propKey in oldProps) {
+        if (newProps.hasOwnProperty(propKey)) {
+            continue;
+        }
+        if (propKey !== CHILDREN) { // JSX Children don't have an impact on the DOM Element
+            (updatePayload = updatePayload || []).push(propKey, null);
+        }
+    }
+
+    // New/Updated Props
+    for (const propKey in newProps) {
+        const newProp = newProps[propKey];
+        const oldProp = oldProps !== null ? oldProps[propKey] : null;
+
+        if (newProp === oldProp) {
+            continue;
+        }
+
+        // React uses children prop to inline text in e.g. spans, but we ignore that optimization
+        if (propKey !== CHILDREN) {
+            (updatePayload = updatePayload || []).push(propKey, newProp);
+        }
+    }
+
+    return updatePayload;
 }
 
 const markUpdate = (workInProgress: Fiber) => {

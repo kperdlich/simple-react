@@ -19,6 +19,13 @@ function App() {
     const onChange = (event) => {
         setText(event.target.text);
     }*/
+    if (value > 10) {
+        return (
+            <div className="App-red">
+                <button onClick={onClick}>X</button>
+                <span>{value}</span>
+            </div>);
+    }
 
     return (
         <div className="App">
