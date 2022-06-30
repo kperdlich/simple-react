@@ -26,7 +26,7 @@ export const ListComponent = () => {
         <div>
             <span>{spanValue}</span>
             <input value={value} onChange={onChange}/>
-            <button onClick={changeSpanValue}>Add</button>
+            <button onClick={onClick}>Add</button>
             <ul>
                 {values.map((it, index) =>
                     <li key={it}>

@@ -69,6 +69,12 @@ let currentHook: Hook | null = null;
 let nextUnitOfWork: Fiber | null = null;
 
 let isInitialRender = false; // Hack to workaround baily out logic
+
+let newUpdateScheduled = false;
+let shouldYield = false;
+
+let commitScheduled = false;
+
 export const createRoot = (root: HTMLElement) => {
     rootFiber = createRootFiber(root);
 }
@@ -76,20 +82,20 @@ export const createRoot = (root: HTMLElement) => {
 export const render = (startComponent: () => JSX.Element) => {
     const host = createFiberFromTypeAndProps(null, null, null);
     host.tag = HostRoot;
+    host.updateQueue = {element: {$$typeof: "Symbol(react.element)", type: startComponent, props: {}, key: null}}
 
     const hostAlternate = createFiberFromTypeAndProps(null, null, null);
-    host.tag = HostRoot;
-    host.updateQueue = {element: {$$typeof: "Symbol(react.element)", type: startComponent, props: {}, key: null}}
+    hostAlternate.tag = HostRoot;
+    hostAlternate.updates = true; // Stops initial rendering from bailout
 
     host.alternate = hostAlternate;
     hostAlternate.alternate = host;
 
     rootFiber.current = host;
 
-    // Workaround for render so that we not bail out early (react uses render lane for this)
-    isInitialRender = true;
-    rerender(host);
-    isInitialRender = false;
+    nextUnitOfWork = host;
+
+    scheduleUpdate();
     /**
      * TODO
      * Generate new fiber tree and create diff
@@ -102,14 +108,12 @@ const beginWork = (current: Fiber | null, workInProgress: Fiber): Fiber | null =
     // TODO Reset lanes on workInProgress
 
     if (current !== null) {
-        if (!isInitialRender) {
-            const oldProps = current.memoizedProps;
-            const newProps = workInProgress.pendingProps;
+        const oldProps = current.memoizedProps;
+        const newProps = workInProgress.pendingProps;
 
-            // Updated by state changes
-            if (!current.updates && oldProps === newProps) {
-                return attemptEarlyBailoutIfNoScheduledUpdate(current, workInProgress);
-            }
+        // Updated by state changes
+        if (!current.updates && oldProps === newProps) {
+            return attemptEarlyBailoutIfNoScheduledUpdate(current, workInProgress);
         }
     }
 
@@ -141,12 +145,15 @@ const performUnitOfWork = (unitOfWork: Fiber): Fiber | null => {
     return next;
 }
 
-const rerender = (work: Fiber) => {
-    nextUnitOfWork = work;
-    while (nextUnitOfWork !== null) {
-        nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
-    }
 
+const workLoop = () => {
+    while (nextUnitOfWork !== null && !shouldYield) {
+        nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
+        console.log(nextUnitOfWork);
+    }
+}
+
+const commit = () => {
     if (rootFiber.current === null) {
         throw Error("rootFiber.current === null");
     }
@@ -223,13 +230,42 @@ const createRootFiber = (root: HTMLElement): RootFiber => {
     };
 }
 
-const scheduleUpdate = (fiber: Fiber) => {
-    markUpdateLaneFromFiberToRoot(fiber);
+const yieldWork = () => {
+    shouldYield = true;
+    newUpdateScheduled = false;
+}
 
-    if (rootFiber.current === null) {
-        throw Error("rootFiber.current === null");
-    }
-    rerender(rootFiber.current);
+const scheduleCommit = () => {
+    if (commitScheduled) return;
+
+    console.log("scheduleCommit");
+
+    commitScheduled = true;
+    window.requestAnimationFrame(() => {
+        commit();
+        commitScheduled = false;
+    });
+}
+
+const scheduleUpdate = () => {
+    if (newUpdateScheduled) return;
+
+    console.log("scheduleUpdate");
+
+    newUpdateScheduled = true;
+    window.requestAnimationFrame(() => {
+        const timeout = setTimeout(yieldWork, 5);
+        workLoop();
+
+        clearTimeout(timeout);
+        newUpdateScheduled = false;
+        if (nextUnitOfWork === null) {
+            // We're done with the render phase, let's schedule commit
+            scheduleCommit();
+        } else {
+            scheduleUpdate();
+        }
+    });
 };
 
 export const prepareToUseHooks = (fiber: Fiber) => {
@@ -269,8 +305,8 @@ export const useState = <T>(initialValue: T): [T, (value: T | ((current: T) => T
             // @ts-ignores
             ? newValue(hook.state)
             : newValue;
-        //currentFiber.flags |= Update; // TODO Bubble up child lane change
-        scheduleUpdate(currentFiber);
+        markUpdateLaneFromFiberToRoot(currentFiber);
+        scheduleUpdate();
     }
 
     return [hook.state as T, setState];

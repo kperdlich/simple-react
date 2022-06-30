@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {ChangeEvent} from 'react';
 import logo from './logo.svg';
 import './App.css';
 import {TestComponent} from "./component/TestComponent";
@@ -9,16 +9,18 @@ import {useState} from "./react/DomRenderer";
 
 function App() {
     const [value, setValue] = useState(0)
-    //const [text, setText] = useState("");
+    const [text, setText] = useState("");
 
     const onClick = () => {
         setValue((current) => current + 1);
     }
 
-    /* Fix input update
-    const onChange = (event) => {
-        setText(event.target.text);
-    }*/
+
+    const onChange = (event: any) => {
+        setText(event.target.value);
+        console.log(event.target.value);
+    }
+
     if (value > 10) {
         return (
             <div className="App-red">
@@ -31,6 +33,7 @@ function App() {
         <div className="App">
             <button onClick={onClick}>X</button>
             <span>{value}</span>
+            <input onChange={onChange}/>
         </div>
     );
 }

@@ -6,10 +6,11 @@ import reportWebVitals from "./reportWebVitals";
 import {react} from "./react/react";
 import {UITestComponent} from "./component/UITestComponent";
 import {createRoot, render} from "./react/DomRenderer";
+import {ListComponent} from "./component/ListComponent";
 
 const root = createRoot(document.getElementById('root') as HTMLElement);
 
-render(App);
+render(ListComponent);
 
 /*const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
