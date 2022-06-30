@@ -68,8 +68,6 @@ let currentHook: Hook | null = null;
 
 let nextUnitOfWork: Fiber | null = null;
 
-let isInitialRender = false; // Hack to workaround baily out logic
-
 let newUpdateScheduled = false;
 let shouldYield = false;
 
@@ -166,6 +164,7 @@ const commit = () => {
     // Swap Buffers
     if (rootFiber.finishedWork === null) {
         // First render
+        rootFiber.current.alternate.updates = false;
         rootFiber.current.alternate.child = rootFiber.current.child;
     } else {
         // Rerender
