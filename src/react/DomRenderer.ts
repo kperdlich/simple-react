@@ -68,7 +68,6 @@ let currentHook: Hook | null = null;
 
 let nextUnitOfWork: Fiber | null = null;
 
-let isInitialRender = false; // Hack to workaround baily out logic
 export const createRoot = (root: HTMLElement) => {
     rootFiber = createRootFiber(root);
 }
@@ -76,20 +75,20 @@ export const createRoot = (root: HTMLElement) => {
 export const render = (startComponent: () => JSX.Element) => {
     const host = createFiberFromTypeAndProps(null, null, null);
     host.tag = HostRoot;
+    host.updateQueue = {element: {$$typeof: "Symbol(react.element)", type: startComponent, props: {}, key: null}}
 
     const hostAlternate = createFiberFromTypeAndProps(null, null, null);
-    host.tag = HostRoot;
-    host.updateQueue = {element: {$$typeof: "Symbol(react.element)", type: startComponent, props: {}, key: null}}
+    hostAlternate.tag = HostRoot;
+    hostAlternate.updates = true; // Prevent initial render bailout
 
     host.alternate = hostAlternate;
     hostAlternate.alternate = host;
 
     rootFiber.current = host;
 
-    // Workaround for render so that we not bail out early (react uses render lane for this)
-    isInitialRender = true;
     rerender(host);
-    isInitialRender = false;
+
+    hostAlternate.updates = false;
     /**
      * TODO
      * Generate new fiber tree and create diff
@@ -102,14 +101,12 @@ const beginWork = (current: Fiber | null, workInProgress: Fiber): Fiber | null =
     // TODO Reset lanes on workInProgress
 
     if (current !== null) {
-        if (!isInitialRender) {
-            const oldProps = current.memoizedProps;
-            const newProps = workInProgress.pendingProps;
+        const oldProps = current.memoizedProps;
+        const newProps = workInProgress.pendingProps;
 
-            // Updated by state changes
-            if (!current.updates && oldProps === newProps) {
-                return attemptEarlyBailoutIfNoScheduledUpdate(current, workInProgress);
-            }
+        // Updated by state changes
+        if (!current.updates && oldProps === newProps) {
+            return attemptEarlyBailoutIfNoScheduledUpdate(current, workInProgress);
         }
     }
 
