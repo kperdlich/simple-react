@@ -155,7 +155,19 @@ const rerender = (work: Fiber) => {
     if (rootFiber.current.alternate === null) {
         throw Error("rootFiber.current.alternate === null");
     }
-    rootFiber.current.alternate.child = rootFiber.current.child;
+
+    // Swap Buffers
+    if (rootFiber.finishedWork === null) {
+        // First render
+        rootFiber.current.alternate.child = rootFiber.current.child;
+    } else {
+        // Rerender
+        const newFinishedWork = rootFiber.current;
+        const oldWork = rootFiber.finishedWork;
+
+        rootFiber.finishedWork = newFinishedWork;
+        rootFiber.current = oldWork;
+    }
 }
 
 export const createFiberFromText = (content: string | number): Fiber => {

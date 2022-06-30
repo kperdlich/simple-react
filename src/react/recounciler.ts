@@ -241,7 +241,7 @@ const createWorkInProgress = (current: Fiber, pendingProps: any): Fiber => {
             return: null,
             tag: current.tag,
             alternate: current,
-            flags: current.flags,
+            flags: NoFlags,
             stateNode: current.stateNode,
             updateQueue: null
         };
@@ -252,7 +252,7 @@ const createWorkInProgress = (current: Fiber, pendingProps: any): Fiber => {
         // TODO Copy Tag?
         workInProgress.pendingProps = pendingProps;
         workInProgress.type = current.type;
-        workInProgress.flags = current.flags; // TODO correct?
+        workInProgress.flags = NoFlags; // Flags are outdated
         workInProgress.childUpdates = current.childUpdates;
         workInProgress.updates = current.updates;
         workInProgress.child = current.child;
