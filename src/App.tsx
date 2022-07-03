@@ -13,6 +13,7 @@ function App() {
 
     const onClick = () => {
         setValue((current) => current + 1);
+        setValue((current) => current + 1);
     }
 
     /* Fix input update

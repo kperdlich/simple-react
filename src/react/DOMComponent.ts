@@ -28,10 +28,6 @@ export const appendAllChildren = (parent: HTMLElement, workInProgress: Fiber) =>
     }
 }
 
-const setTextContent = (node: HTMLElement, text: string) => {
-    node.textContent = text;
-}
-
 export const setValueForProperty = (node: HTMLElement, name: string, value: any | null) => {
     if (value === null) {
         node.removeAttribute(name);
@@ -66,7 +62,7 @@ export const setInitialDOMProperties = (tag: number, domElement: HTMLElement, ne
             if (typeof prop === "number") {
                 setTextContent(domElement, prop.toString());
             }*/
-        } else if (prop !== null) {
+        } else {
             setValueForProperty(domElement, propKey, prop);
         }
     }

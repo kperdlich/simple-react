@@ -53,6 +53,13 @@ export const Deletion = 0b000000001000;
 type Hook = {
     state: any,
     next: Hook | null,
+    queue: HookAction | null,
+}
+
+type HookAction = {
+    action: any,
+    hasEagerState: boolean,
+    next: HookAction | null,
 }
 
 export const FunctionalComponent = 0;
@@ -79,7 +86,7 @@ export const render = (startComponent: () => JSX.Element) => {
 
     const hostAlternate = createFiberFromTypeAndProps(null, null, null);
     hostAlternate.tag = HostRoot;
-    hostAlternate.updates = true; // Prevent initial render bailout
+    hostAlternate.updates = true; // Force Update to prevent initial render bailout
 
     host.alternate = hostAlternate;
     hostAlternate.alternate = host;
@@ -89,12 +96,6 @@ export const render = (startComponent: () => JSX.Element) => {
     rerender(host);
 
     hostAlternate.updates = false;
-    /**
-     * TODO
-     * Generate new fiber tree and create diff
-     * Store hook data in fiber?
-     * Apply diff back to DOM
-     */
 }
 
 const beginWork = (current: Fiber | null, workInProgress: Fiber): Fiber | null => {
@@ -188,7 +189,7 @@ export const createFiberFromText = (content: string | number): Fiber => {
 }
 
 export const createFiberFromTypeAndProps = (type: any, key: string | null, pendingProps: any): Fiber => {
-    // By default the tag is functional component even though we don't know, react uses intermediate component
+    // By default, the tag is functional component. React uses intermediate component (Legacy to class components)
     let tag = FunctionalComponent;
     if (typeof type === "string") {
         tag = HostComponent;
@@ -220,9 +221,7 @@ const createRootFiber = (root: HTMLElement): RootFiber => {
     };
 }
 
-const scheduleUpdate = (fiber: Fiber) => {
-    markUpdateLaneFromFiberToRoot(fiber);
-
+const scheduleUpdate = () => {
     if (rootFiber.current === null) {
         throw Error("rootFiber.current === null");
     }
@@ -238,13 +237,13 @@ export const prepareToUseHooks = (fiber: Fiber) => {
 const resolveOrCreateHook = <T>(initialValue: T): Hook => {
     if (firstCurrentFiberHook === null && currentHook === null) {
         // Initial rendering, first hook
-        const newHook: Hook = {state: initialValue, next: null};
+        const newHook: Hook = {state: initialValue, next: null, queue: null};
         currentFiber.memoizedState = newHook;
         firstCurrentFiberHook = currentFiber.memoizedState;
         currentHook = firstCurrentFiberHook;
     } else if (firstCurrentFiberHook && currentHook && currentHook.next === null) {
         // Initial rendering, greater first hook
-        const newHook: Hook = {state: initialValue, next: null};
+        const newHook: Hook = {state: initialValue, next: null, queue: null};
         currentHook.next = newHook;
         currentHook = newHook;
     } else if (firstCurrentFiberHook && !currentHook) {
@@ -255,22 +254,57 @@ const resolveOrCreateHook = <T>(initialValue: T): Hook => {
         throw Error("Hooks are messed up :(");
     }
 
-    return currentHook;
+    return updateState(currentHook);
 }
 
 export const useState = <T>(initialValue: T): [T, (value: T | ((current: T) => T)) => void] => {
     const hook = resolveOrCreateHook(initialValue);
 
     const setState = (newValue: T | ((current: T) => T)) => {
-        hook.state = typeof newValue === "function"
-            // @ts-ignores
-            ? newValue(hook.state)
-            : newValue;
-        //currentFiber.flags |= Update; // TODO Bubble up child lane change
-        scheduleUpdate(currentFiber);
+        const hookAction: HookAction = {
+            action: newValue,
+            hasEagerState: typeof newValue !== "function",
+            next: null,
+        };
+        enqueueHookUpdate(hook, hookAction);
+        markUpdateLaneFromFiberToRoot(currentFiber);
+        scheduleUpdate();
     }
 
     return [hook.state as T, setState];
+}
+
+const enqueueHookUpdate = (hook: Hook, update: HookAction) => {
+    if (hook.queue === null) {
+        hook.queue = update;
+    } else {
+        // Add to end of pending actions list
+        let lastUpdate = hook.queue;
+        while (lastUpdate.next !== null) {
+            lastUpdate = lastUpdate.next;
+        }
+        lastUpdate.next = update;
+    }
+}
+
+const updateState = (hook: Hook): Hook => {
+    if (hook.queue === null) return hook;
+
+    // Apply all pending actions sequentially
+    let currentAction: HookAction | null = hook.queue;
+    let newState = hook.state;
+    do {
+        if (currentAction.hasEagerState) {
+            newState = currentAction.action;
+        } else {
+            newState = currentAction.action(newState);
+        }
+        currentAction = currentAction.next;
+    } while (currentAction !== null);
+
+    hook.state = newState;
+    hook.queue = null;
+    return hook;
 }
 
 const markUpdateLaneFromFiberToRoot = (fiber: Fiber) => {
