@@ -22,6 +22,7 @@ export type Fiber = {
     type: any,
     return: Fiber | null,
     child: Fiber | null,
+    deletions: Fiber[] | null,
     sibling: Fiber | null
     childUpdates: boolean, // childLane
     updates: boolean, // lanes
@@ -173,6 +174,7 @@ export const createFiberFromText = (content: string | number): Fiber => {
         type: null,
         pendingProps: content,
         key: null,
+        deletions: null,
         child: null,
         childUpdates: false,
         updates: false,
@@ -197,6 +199,7 @@ export const createFiberFromTypeAndProps = (type: any, key: string | null, pendi
     return {
         type: type,
         pendingProps: pendingProps,
+        deletions: null,
         key: key,
         childUpdates: false,
         updates: false,

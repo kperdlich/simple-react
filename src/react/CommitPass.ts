@@ -43,11 +43,25 @@ const commitMutationEffectsOnFiber = (finishedWork: Fiber, root: RootFiber) => {
 }
 
 const recursivelyTraverseMutationEffects = (root: RootFiber, parentFiber: Fiber) => {
-    let child = parentFiber.child;
+    if (parentFiber.deletions !== null) {
+        for (const childToDelete of parentFiber.deletions) {
+            commitDeletionEffectsOnFiber(parentFiber, childToDelete);
+        }
+    }
 
+    let child = parentFiber.child;
     while (child !== null) {
         commitMutationEffectsOnFiber(child, root);
         child = child.sibling;
+    }
+}
+
+const commitDeletionEffectsOnFiber = (parentFiber: Fiber, deletedFiber: Fiber) => {
+    switch (deletedFiber.tag) {
+        case HostComponent:
+        case HostText:
+            (parentFiber.stateNode as HTMLElement).removeChild(deletedFiber.stateNode as Node);
+            return;
     }
 }
 

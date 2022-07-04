@@ -117,32 +117,51 @@ const reconcileSingleElement = (returnFiber: Fiber, currentFirstChild: Fiber | n
     return newFiber;
 }
 
+/**
+ * Updates existing Fibers by iterating over the new jsx children. Match is done via key.
+ * Existing fibers that have not been matched will be deleted.
+ * It will also create a new Fiber if none alternate exists (Double buffering)
+ * @param returnFiber
+ * @param currentFirstChild
+ * @param newChildren
+ */
 const reconcileChildrenArray = (returnFiber: Fiber, currentFirstChild: Fiber | null, newChildren: any[]): Fiber | null => {
-    // TODO Check for known keys using set/ sort if keys have different order
-    // TODO Delete child if required
-    // TODO mapRemainingChildren
     let oldFiber = currentFirstChild;
     let firstChild = currentFirstChild;
 
-    if (oldFiber !== null) {
-        let nextOldFiber: Fiber | null = null;
-        let previousNewFiber: Fiber | null = null;
+    let index = 0;
+    let nextOldFiber: Fiber | null = null;
+    let previousNewFiber: Fiber | null = null;
 
-        for (let i = 0; oldFiber !== null && i < newChildren.length; ++i) {
-            nextOldFiber = oldFiber.sibling;
+    // Check new children against existing fibers using key and try to update
+    for (; oldFiber !== null && index < newChildren.length; ++index) {
+        nextOldFiber = oldFiber.sibling;
 
-            const newFiber = updateSlot(returnFiber, oldFiber, newChildren[i]);
+        const newFiber = updateSlot(returnFiber, oldFiber, newChildren[index]);
 
-            if (previousNewFiber === null) {
-                firstChild = newFiber;
-            } else {
-                previousNewFiber.sibling = newFiber;
-            }
-            previousNewFiber = newFiber;
-            oldFiber = nextOldFiber;
+        // Key did not match
+        if (newFiber === null) {
+            // Break out and check against remaining child's using key map
+            break;
         }
-    } else {
-        // Fast path, only insertions
+
+        if (previousNewFiber === null) {
+            firstChild = newFiber;
+        } else {
+            previousNewFiber.sibling = newFiber;
+        }
+        previousNewFiber = newFiber;
+        oldFiber = nextOldFiber;
+    }
+
+    if (index === newChildren.length) {
+        // All new children have been processed, the rest can be deleted
+        deleteRemainingChildren(returnFiber, oldFiber);
+        return firstChild;
+    }
+
+    if (oldFiber === null) {
+        // No more existing children, only insertions
         let prevFiber: Fiber | null = null;
         for (let i = 0; i < newChildren.length; ++i) {
             const newFiber = createChild(returnFiber, newChildren[i]);
@@ -152,10 +171,77 @@ const reconcileChildrenArray = (returnFiber: Fiber, currentFirstChild: Fiber | n
                 prevFiber.sibling = prevFiber = newFiber;
             }
         }
+        return firstChild;
     }
+
+    // Generate remaining children's map: key -> fiber.
+    const existingChildren = new Map();
+    let existingChild: Fiber | null = oldFiber;
+    while (existingChild !== null) {
+        if (existingChild.key !== null) {
+            existingChildren.set(existingChild.key, existingChild);
+        } else {
+            throw Error("Key is null and index path is not supported");
+        }
+        existingChild = existingChild.sibling;
+    }
+
+    // Update matching fibers
+    for (; index < newChildren.length; ++index) {
+        const newFiber = updateFromMap(existingChildren, returnFiber, newChildren[index]);
+
+        if (newFiber !== null) {
+            // Remove from map, otherwise it's handled as deletion
+            existingChildren.delete(newFiber.key);
+        }
+
+        if (previousNewFiber === null) {
+            firstChild = newFiber;
+        } else {
+            previousNewFiber.sibling = newFiber;
+        }
+        previousNewFiber = newFiber;
+    }
+
+    // Delete the leftovers from the map
+    existingChildren.forEach((value) => {
+        deleteChild(returnFiber, value);
+    });
 
     return firstChild;
 }
+
+const updateFromMap = (existingChildren: Map<string | Fiber, Fiber>, returnFiber: Fiber, newChild: ReactElement | any) => {
+    if (typeof newChild === "string" || typeof newChild === "number") {
+        throw Error("Text Node via Index not implemented");
+    }
+
+    if (typeof newChild === "object") {
+        if (newChild.$$typeof) {
+            const matchedFiber = existingChildren.get(newChild.key) || null;
+            return updateElement(returnFiber, matchedFiber, newChild);
+        }
+    }
+
+    throw Error("Not implemented!");
+}
+
+const deleteRemainingChildren = (returnFiber: Fiber, currentFirstChild: Fiber | null) => {
+    let childToDelete: Fiber | null = currentFirstChild;
+    while (childToDelete !== null) {
+        deleteChild(returnFiber, childToDelete);
+        childToDelete = childToDelete.sibling;
+    }
+}
+
+const deleteChild = (returnFiber: Fiber, childToDelete: Fiber) => {
+    if (returnFiber.deletions === null) {
+        returnFiber.deletions = [childToDelete]; // TODO Add child deletion flag?
+    } else {
+        returnFiber.deletions.push(childToDelete);
+    }
+};
+
 
 const createChild = (returnFiber: Fiber, newChild: any): Fiber => {
     if (typeof newChild === 'string' || typeof newChild === 'number') {
@@ -215,7 +301,7 @@ const cloneChildFibers = (current: Fiber, workInProgress: Fiber) => {
     workInProgress.child = newChild;
     newChild.return = workInProgress;
 
-    while(currentChild.sibling !== null) {
+    while (currentChild.sibling !== null) {
         currentChild = currentChild.sibling;
         newChild = newChild.sibling = createWorkInProgress(currentChild, currentChild.pendingProps);
         newChild.return = workInProgress;
@@ -232,6 +318,7 @@ const createWorkInProgress = (current: Fiber, pendingProps: any): Fiber => {
             type: current.type,
             pendingProps: pendingProps,
             key: current.key,
+            deletions: null,
             childUpdates: current.childUpdates,
             updates: current.updates,
             child: current.child,
@@ -253,6 +340,7 @@ const createWorkInProgress = (current: Fiber, pendingProps: any): Fiber => {
         workInProgress.pendingProps = pendingProps;
         workInProgress.type = current.type;
         workInProgress.flags = NoFlags; // Flags are outdated
+        workInProgress.deletions = null;
         workInProgress.childUpdates = current.childUpdates;
         workInProgress.updates = current.updates;
         workInProgress.child = current.child;

@@ -8,30 +8,10 @@ import {ListComponent} from "./component/ListComponent";
 import {useState} from "./react/DomRenderer";
 
 function App() {
-    const [value, setValue] = useState(0)
-    //const [text, setText] = useState("");
-
-    const onClick = () => {
-        setValue((current) => current + 1);
-        setValue((current) => current + 1);
-    }
-
-    /* Fix input update
-    const onChange = (event) => {
-        setText(event.target.text);
-    }*/
-    if (value > 10) {
-        return (
-            <div className="App-red">
-                <button onClick={onClick}>X</button>
-                <span>{value}</span>
-            </div>);
-    }
 
     return (
         <div className="App">
-            <button onClick={onClick}>X</button>
-            <span>{value}</span>
+            <ListComponent/>
         </div>
     );
 }
