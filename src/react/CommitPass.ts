@@ -1,8 +1,17 @@
-import {Fiber, HostComponent, HostText, Placement, RootFiber, Update} from "./DomRenderer";
+import {
+    EffectQueueState,
+    Fiber,
+    FunctionalComponent,
+    HostComponent,
+    HostText,
+    Placement,
+    RootFiber,
+    Update
+} from "./DomRenderer";
 import {setValueForProperty} from "./DOMComponent";
+import {HasEffect} from "./Hooks";
 
 export const commitRoot = (workInProgressRoot: Fiber, root: RootFiber) => {
-    // TODO Trigger commit effects recursive
     commitMutationEffectsOnFiber(workInProgressRoot, root);
 }
 
@@ -95,5 +104,125 @@ const updateDOMProperties = (domElement: HTMLElement, updatePayload: any[], type
         const propValue = updatePayload[i + 1];
 
         setValueForProperty(domElement, propKey, propValue);
+    }
+}
+
+export const commitPassiveMountEffects = (finishedWork: Fiber | null) => {
+    let nextEffect = finishedWork;
+    while (nextEffect !== null) {
+        const child = nextEffect.child;
+
+        if (child !== null) {
+            nextEffect = child;
+        } else {
+            nextEffect = commitPassiveMountEffects_complete(nextEffect);
+        }
+    }
+}
+
+const commitPassiveMountEffects_complete = (fiberWithEffect: Fiber | null): Fiber | null => {
+    let nextEffect = fiberWithEffect;
+    while (nextEffect !== null) {
+        switch (nextEffect.tag) {
+            case FunctionalComponent:
+                commitHookEffectListMount(nextEffect);
+                break;
+        }
+
+        const sibling = nextEffect.sibling;
+        if (sibling !== null) {
+            nextEffect = sibling;
+            return nextEffect;
+        }
+        nextEffect = nextEffect.return;
+    }
+    return null;
+}
+
+const commitHookEffectListMount = (finishedWork: Fiber) => {
+    const updateQueue = (finishedWork.updateQueue as EffectQueueState);
+    const lastEffect = updateQueue !== null ? updateQueue.lastEffect : null;
+
+    if (lastEffect !== null) {
+        const firstEffect = lastEffect.next!; // Assume non-null as it is a circular queue
+        let effect = firstEffect;
+
+        do {
+            if (effect.tag & HasEffect) {
+                const destroy = effect.create();
+                if (destroy !== undefined) {
+                    effect.destroy = destroy;
+                }
+            }
+            effect = effect.next!;
+        } while (effect !== firstEffect);
+    }
+};
+
+export const commitPassiveUnmountEffects = (firstChild: Fiber | null) => {
+    let nextEffect = firstChild;
+
+    while (nextEffect !== null) {
+        const child = nextEffect.child;
+
+        // TODO Detach deletions?
+
+        if (child !== null) {
+            nextEffect = child;
+        } else {
+            // Child path complete
+            nextEffect = commitPassiveUnmountEffects_complete(nextEffect);
+        }
+    }
+}
+/**
+ * Triggers hook effect and iterates over siblings and finally parents
+ * @param effect
+ */
+const commitPassiveUnmountEffects_complete = (effect: Fiber | null): Fiber | null => {
+    let nextEffect = effect;
+    while (nextEffect !== null) {
+        switch (nextEffect.tag) {
+            case FunctionalComponent:
+                commitHookEffectListUnmount(nextEffect);
+                break;
+        }
+
+        const sibling = nextEffect.sibling;
+        if (sibling !== null) {
+            nextEffect = sibling;
+            return nextEffect;
+        }
+        nextEffect = nextEffect.return;
+    }
+
+    return null;
+}
+
+/**
+ * Iterate over circular update queue add call destroy if flag "HasEffect" is set
+ * @param finishedWork - Fiber to process update queue
+ */
+const commitHookEffectListUnmount = (finishedWork: Fiber) => {
+    const updateQueue = (finishedWork.updateQueue as EffectQueueState);
+    const lastEffect = updateQueue !== null ? updateQueue.lastEffect : null;
+
+    if (lastEffect !== null) {
+        const firstEffect = lastEffect.next!; // Assume non-null as it is a circular queue
+        let effect = firstEffect;
+
+        do {
+            if (effect.tag & HasEffect) {
+                const destroy = effect.destroy;
+                if (destroy !== null) {
+                    try {
+                        destroy();
+                    } catch (error) {
+                        console.log(error);
+                    }
+                }
+            }
+            effect = effect.next!;
+        } while (effect !== firstEffect);
     }
 }

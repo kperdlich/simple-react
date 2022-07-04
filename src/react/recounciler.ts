@@ -4,9 +4,9 @@ import {
     Fiber, HostState, HostText, NoFlags,
     PerformedWork,
     Placement,
-    prepareToUseHooks,
     ReactElement
 } from "./DomRenderer";
+import {prepareToUseHooks} from "./Hooks";
 
 export const updateFunctionalComponent = (current: Fiber | null, workInProgress: Fiber): Fiber | null => {
     if (current === null) {
@@ -347,6 +347,7 @@ const createWorkInProgress = (current: Fiber, pendingProps: any): Fiber => {
         workInProgress.memoizedState = current.memoizedState;
         workInProgress.memoizedProps = current.memoizedProps;
         workInProgress.sibling = current.sibling;
+        workInProgress.updateQueue = null;
     }
 
     return workInProgress;

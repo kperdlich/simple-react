@@ -11,6 +11,10 @@ export const appendAllChildren = (parent: HTMLElement, workInProgress: Fiber) =>
                 throw Error("appendAllChildren: stateNode is broken :(");
             }
             parent.appendChild(node.stateNode);
+        } else if (node.child !== null) {
+            // e.g. node is functional component but child is host component, continue with it
+            node = node.child;
+            continue;
         }
 
         if (node === workInProgress) {

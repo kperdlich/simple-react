@@ -6,7 +6,7 @@ import {
     updateHostText
 } from "./recounciler";
 import {completeUnitOfWork} from "./CompleteWork";
-import {commitRoot} from "./CommitPass";
+import {commitPassiveMountEffects, commitPassiveUnmountEffects, commitRoot} from "./CommitPass";
 
 export type RootFiber = {
     containerInfo: HTMLElement;
@@ -15,7 +15,31 @@ export type RootFiber = {
 }
 
 export type HostState = {
-    element: any;
+    element: ReactElement;
+}
+
+export type EffectQueueState = {
+    lastEffect: EffectState | null;
+}
+
+export type EffectState = {
+    tag: number;
+    create: () => (() => void) | undefined;
+    deps: any[] | null;
+    destroy: (() => void) | null;
+    next: EffectState | null;
+}
+
+export type Hook = {
+    state: any | EffectState,
+    next: Hook | null,
+    queue: HookAction | null,
+}
+
+export type HookAction = {
+    action: any,
+    hasEagerState: boolean,
+    next: HookAction | null,
 }
 
 export type Fiber = {
@@ -32,7 +56,7 @@ export type Fiber = {
     key: string | null,
     tag: number | null;
     stateNode: HTMLElement | Text | null;
-    updateQueue: HostState | null | any[],
+    updateQueue: HostState | EffectQueueState | any[] | null,
     flags: number;
     alternate: Fiber | null,
 }
@@ -40,9 +64,9 @@ export type Fiber = {
 export type ReactElement = {
     $$typeof: any,
     type: any,
-    key: any,
-    ref: any,
-    props: any,
+    key: any | null,
+    ref: any | null,
+    props: any | null,
 };
 
 export const NoFlags = 0b000000000000;
@@ -51,18 +75,6 @@ export const Placement = 0b00000000010
 export const Update = 0b000000000100;
 export const Deletion = 0b000000001000;
 
-type Hook = {
-    state: any,
-    next: Hook | null,
-    queue: HookAction | null,
-}
-
-type HookAction = {
-    action: any,
-    hasEagerState: boolean,
-    next: HookAction | null,
-}
-
 export const FunctionalComponent = 0;
 export const HostRoot = 3;
 export const HostComponent = 5;
@@ -70,9 +82,7 @@ export const HostText = 6;
 
 let rootFiber: RootFiber;
 
-let currentFiber: Fiber;
-let firstCurrentFiberHook: Hook | null = null;
-let currentHook: Hook | null = null;
+export let currentFiber: Fiber;
 
 let nextUnitOfWork: Fiber | null = null;
 
@@ -83,7 +93,14 @@ export const createRoot = (root: HTMLElement) => {
 export const render = (startComponent: () => JSX.Element) => {
     const host = createFiberFromTypeAndProps(null, null, null);
     host.tag = HostRoot;
-    host.updateQueue = {element: {$$typeof: "Symbol(react.element)", type: startComponent, props: {}, key: null}}
+    const element: ReactElement = {
+        $$typeof: "Symbol(react.element)",
+        type: startComponent,
+        props: {},
+        key: null,
+        ref: null
+    };
+    host.updateQueue = {element: element};
 
     const hostAlternate = createFiberFromTypeAndProps(null, null, null);
     hostAlternate.tag = HostRoot;
@@ -155,6 +172,9 @@ const rerender = (work: Fiber) => {
         throw Error("rootFiber.current.alternate === null");
     }
 
+    commitPassiveUnmountEffects(rootFiber.current);
+    commitPassiveMountEffects(rootFiber.current);
+
     // Swap Buffers
     if (rootFiber.finishedWork === null) {
         // First render
@@ -224,93 +244,21 @@ const createRootFiber = (root: HTMLElement): RootFiber => {
     };
 }
 
-const scheduleUpdate = () => {
+export const scheduleUpdate = () => {
     if (rootFiber.current === null) {
         throw Error("rootFiber.current === null");
     }
     rerender(rootFiber.current);
 };
 
-export const prepareToUseHooks = (fiber: Fiber) => {
+
+
+export const setCurrentFiber = (fiber: Fiber) => {
     currentFiber = fiber;
-    firstCurrentFiberHook = currentFiber.memoizedState as Hook;
-    currentHook = null;
 }
 
-const resolveOrCreateHook = <T>(initialValue: T): Hook => {
-    if (firstCurrentFiberHook === null && currentHook === null) {
-        // Initial rendering, first hook
-        const newHook: Hook = {state: initialValue, next: null, queue: null};
-        currentFiber.memoizedState = newHook;
-        firstCurrentFiberHook = currentFiber.memoizedState;
-        currentHook = firstCurrentFiberHook;
-    } else if (firstCurrentFiberHook && currentHook && currentHook.next === null) {
-        // Initial rendering, greater first hook
-        const newHook: Hook = {state: initialValue, next: null, queue: null};
-        currentHook.next = newHook;
-        currentHook = newHook;
-    } else if (firstCurrentFiberHook && !currentHook) {
-        currentHook = firstCurrentFiberHook;
-    } else if (currentHook && currentHook.next) {
-        currentHook = currentHook.next;
-    } else {
-        throw Error("Hooks are messed up :(");
-    }
 
-    return updateState(currentHook);
-}
-
-export const useState = <T>(initialValue: T): [T, (value: T | ((current: T) => T)) => void] => {
-    const hook = resolveOrCreateHook(initialValue);
-
-    const setState = (newValue: T | ((current: T) => T)) => {
-        const hookAction: HookAction = {
-            action: newValue,
-            hasEagerState: typeof newValue !== "function",
-            next: null,
-        };
-        enqueueHookUpdate(hook, hookAction);
-        markUpdateLaneFromFiberToRoot(currentFiber);
-        scheduleUpdate();
-    }
-
-    return [hook.state as T, setState];
-}
-
-const enqueueHookUpdate = (hook: Hook, update: HookAction) => {
-    if (hook.queue === null) {
-        hook.queue = update;
-    } else {
-        // Add to end of pending actions list
-        let lastUpdate = hook.queue;
-        while (lastUpdate.next !== null) {
-            lastUpdate = lastUpdate.next;
-        }
-        lastUpdate.next = update;
-    }
-}
-
-const updateState = (hook: Hook): Hook => {
-    if (hook.queue === null) return hook;
-
-    // Apply all pending actions sequentially
-    let currentAction: HookAction | null = hook.queue;
-    let newState = hook.state;
-    do {
-        if (currentAction.hasEagerState) {
-            newState = currentAction.action;
-        } else {
-            newState = currentAction.action(newState);
-        }
-        currentAction = currentAction.next;
-    } while (currentAction !== null);
-
-    hook.state = newState;
-    hook.queue = null;
-    return hook;
-}
-
-const markUpdateLaneFromFiberToRoot = (fiber: Fiber) => {
+export const markUpdateLaneFromFiberToRoot = (fiber: Fiber) => {
     fiber.updates = true;
     let parent = fiber.return;
     while (parent !== null) {
