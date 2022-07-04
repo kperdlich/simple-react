@@ -16,7 +16,7 @@ let currentHook: Hook | null = null;
  * Pushes effect into circular fiber update queue.
  * @param effect - Effect to push
  */
-const pushEffect = (effect: EffectState,) => {
+const pushEffect = (effect: EffectState): EffectState => {
     if (currentFiber.updateQueue === null) {
         // Create queue and add effect
         currentFiber.updateQueue = { lastEffect: null };
@@ -67,7 +67,6 @@ export const useEffect = (action: () => (() => void) | undefined, deps?: any[]) 
         // Initial Creation
         const newEffect: EffectState = {create: action, deps: newDeps, destroy: null, next: null, tag: HasEffect};
         hook.state = pushEffect(newEffect);
-        hook.state = newEffect;
         return;
     }
 
@@ -122,6 +121,7 @@ export const resolveOrCreateHook = <T>(initialState?: T): Hook => {
 export const useState = <T>(initialValue: T): [T, (value: T | ((current: T) => T)) => void] => {
     const hook = resolveOrCreateHook(initialValue);
     updateState(hook);
+    const hookFiber = currentFiber;
 
     const setState = (newValue: T | ((current: T) => T)) => {
         const hookAction: HookAction = {
@@ -130,7 +130,7 @@ export const useState = <T>(initialValue: T): [T, (value: T | ((current: T) => T
             next: null,
         };
         enqueueHookUpdate(hook, hookAction);
-        markUpdateLaneFromFiberToRoot(currentFiber);
+        markUpdateLaneFromFiberToRoot(hookFiber);
         scheduleUpdate();
     }
 

@@ -2,7 +2,7 @@ import {
     EffectQueueState,
     Fiber,
     FunctionalComponent,
-    HostComponent,
+    HostComponent, HostRoot,
     HostText,
     Placement,
     RootFiber,
@@ -21,9 +21,7 @@ const commitMutationEffectsOnFiber = (finishedWork: Fiber, root: RootFiber) => {
     switch (finishedWork.tag) {
         case HostComponent:
             recursivelyTraverseMutationEffects(root, finishedWork);
-            if (flags & Placement) {
-                insertOrAppendPlacementNodeIntoContainer(finishedWork, root.containerInfo);
-            } else if (flags & Update) {
+            if (flags & Update) {
                 const newProps = finishedWork.memoizedProps;
                 const oldProps = finishedWork.alternate ? finishedWork.alternate.memoizedProps : newProps; // Will bail out later
                 const type = finishedWork.type;
@@ -44,6 +42,13 @@ const commitMutationEffectsOnFiber = (finishedWork: Fiber, root: RootFiber) => {
                 }
                 textInstance.nodeValue = newText;
             }
+            return;
+        case HostRoot:
+            // Hack to avoid subtree flags
+            if (finishedWork.child && finishedWork.child.flags & Placement) {
+                insertOrAppendPlacementNodeIntoContainer(finishedWork.child, root.containerInfo);
+            }
+            recursivelyTraverseMutationEffects(root, finishedWork);
             return;
         default:
             recursivelyTraverseMutationEffects(root, finishedWork);
@@ -67,6 +72,10 @@ const recursivelyTraverseMutationEffects = (root: RootFiber, parentFiber: Fiber)
 
 const commitDeletionEffectsOnFiber = (parentFiber: Fiber, deletedFiber: Fiber) => {
     switch (deletedFiber.tag) {
+        case FunctionalComponent:
+            // Drill down until we find all child elements
+            commitDeletionEffectsOnFiber(parentFiber, deletedFiber.child!);
+            return;
         case HostComponent:
         case HostText:
             (parentFiber.stateNode as HTMLElement).removeChild(deletedFiber.stateNode as Node);
@@ -165,7 +174,29 @@ export const commitPassiveUnmountEffects = (firstChild: Fiber | null) => {
     while (nextEffect !== null) {
         const child = nextEffect.child;
 
-        // TODO Detach deletions?
+        const deletions = nextEffect.deletions;
+        if (deletions) {
+            for (let i = 0; i < deletions.length; i++) {
+                const fiberToDelete = deletions[i];
+                commitPassiveUnmountEffectsInsideOfDeletedTree_begin(fiberToDelete, nextEffect);
+            }
+
+            // Disconnect child and sibling pointers from alternate
+            const previousFiber = nextEffect.alternate;
+            if (previousFiber !== null) {
+                let detachedChild = previousFiber.child;
+
+                if (detachedChild !== null) {
+                    previousFiber.child = null;
+
+                    do {
+                        const detachedSibling = detachedChild.sibling;
+                        detachedChild.sibling = null;
+                        detachedChild = detachedSibling;
+                    } while (detachedChild !== null);
+                }
+            }
+        }
 
         if (child !== null) {
             nextEffect = child;
@@ -175,6 +206,52 @@ export const commitPassiveUnmountEffects = (firstChild: Fiber | null) => {
         }
     }
 }
+/**
+ * Iterates over all children of deleted subtree and calls unmount
+ * @param deletedSubtreeRoot
+ * @param nearestMountedAncestor
+ */
+const commitPassiveUnmountEffectsInsideOfDeletedTree_begin = (deletedSubtreeRoot: Fiber, nearestMountedAncestor: Fiber) => {
+    let nextEffect: Fiber | null = deletedSubtreeRoot;
+
+    while (nextEffect !== null) {
+        switch (nextEffect.tag) {
+            case FunctionalComponent: // Only functional components have effects!
+                commitHookEffectListUnmount(nextEffect);
+                break;
+        }
+
+        let child = nextEffect.child;
+        if (child !== null) {
+            nextEffect = child;
+        } else {
+            nextEffect = commitPassiveUnmountEffectsInsideOfDeletedTree_complete(nextEffect, deletedSubtreeRoot);
+        }
+    }
+}
+
+const commitPassiveUnmountEffectsInsideOfDeletedTree_complete = (currentFiber: Fiber | null, deletedSubtreeRoot: Fiber): Fiber | null => {
+    let nextEffect = currentFiber;
+    while (nextEffect !== null) {
+        const fiber = nextEffect;
+        const fiberSibling = fiber.sibling;
+        const fiberReturn = fiber.return;
+        detachFiberAfterEffects(fiber);
+
+        if (fiber === deletedSubtreeRoot) {
+            return null;
+        }
+
+        if (fiberSibling) {
+            nextEffect = fiberSibling;
+            return nextEffect;
+        }
+
+        nextEffect = fiberReturn;
+    }
+    return null;
+}
+
 /**
  * Triggers hook effect and iterates over siblings and finally parents
  * @param effect
@@ -225,4 +302,21 @@ const commitHookEffectListUnmount = (finishedWork: Fiber) => {
             effect = effect.next!;
         } while (effect !== firstEffect);
     }
+}
+
+const detachFiberAfterEffects = (fiber: Fiber) => {
+    if (fiber.alternate !== null) {
+        detachFiberAfterEffects(fiber.alternate);
+        fiber.alternate = null;
+    }
+
+    fiber.child = null;
+    fiber.deletions = null;
+    fiber.sibling = null;
+    fiber.stateNode = null;
+    fiber.return = null;
+    fiber.memoizedProps = null;
+    fiber.memoizedState = null;
+    fiber.pendingProps = null;
+    fiber.updateQueue = null;
 }

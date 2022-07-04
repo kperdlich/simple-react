@@ -84,7 +84,7 @@ const reconcileSingleTextNode = (returnFiber: Fiber, currentFirstChild: Fiber | 
 
     const newFiber = createFiberFromText(textContent);
     newFiber.return = returnFiber;
-    newFiber.flags |= Placement; // Technical this is part of placeSingleChild() but anyways ...
+    //newFiber.flags |= Placement; // Technical this is part of placeSingleChild() but anyways ...
     return newFiber;
 }
 
@@ -113,7 +113,7 @@ const reconcileSingleElement = (returnFiber: Fiber, currentFirstChild: Fiber | n
 
     const newFiber = createFiberFromTypeAndProps(element.type, element.key, element.props);
     newFiber.return = returnFiber;
-    newFiber.flags |= Placement; // Technical this is part of placeSingleChild() but anyways ...
+    //newFiber.flags |= Placement; // Technical this is part of placeSingleChild() but anyways ...
     return newFiber;
 }
 
