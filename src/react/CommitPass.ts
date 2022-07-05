@@ -35,7 +35,7 @@ const commitMutationEffectsOnFiber = (finishedWork: Fiber, root: RootFiber) => {
         case HostText:
             recursivelyTraverseMutationEffects(root, finishedWork);
             if (flags & Update) {
-                const textInstance = finishedWork.stateNode;
+                const textInstance = finishedWork.stateNode as Text;
                 const newText = finishedWork.memoizedProps;
                 if (textInstance === null) {
                     throw Error("textInstance === undefined");
@@ -43,16 +43,29 @@ const commitMutationEffectsOnFiber = (finishedWork: Fiber, root: RootFiber) => {
                 textInstance.nodeValue = newText;
             }
             return;
-        case HostRoot:
-            // Hack to avoid subtree flags
-            if (finishedWork.child && (finishedWork.child.flags & Placement)) {
-                insertOrAppendPlacementNodeIntoContainer(finishedWork.child, root.containerInfo);
-            }
+        case FunctionalComponent:
             recursivelyTraverseMutationEffects(root, finishedWork);
+            if (finishedWork.flags & Placement) {
+                commitPlacement(finishedWork);
+            }
             return;
         default:
             recursivelyTraverseMutationEffects(root, finishedWork);
             break;
+    }
+}
+
+const commitPlacement = (finishedWork: Fiber) => {
+    const parent = finishedWork.return!;
+    switch (parent.tag) {
+        case HostComponent:
+            insertOrAppendPlacementNodeIntoContainer(finishedWork, parent.stateNode as HTMLElement);
+            break;
+        case HostRoot:
+            insertOrAppendPlacementNodeIntoContainer(finishedWork, (parent.stateNode as RootFiber).containerInfo);
+            break;
+        default:
+            throw Error("Invalid host parent.");
     }
 }
 
@@ -92,7 +105,7 @@ const insertOrAppendPlacementNodeIntoContainer = (node: Fiber, parent: HTMLEleme
         if (stateNode === null) {
             throw Error("insertOrAppendPlacementNodeIntoContainer: stateNode === null");
         }
-        parent.appendChild(stateNode);
+        parent.appendChild(stateNode as HTMLElement);
     } else {
         const child = node.child;
         if (child !== null) {

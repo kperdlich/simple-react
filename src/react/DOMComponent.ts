@@ -10,7 +10,7 @@ export const appendAllChildren = (parent: HTMLElement, workInProgress: Fiber) =>
             if (node.stateNode === null) {
                 throw Error("appendAllChildren: stateNode is broken :(");
             }
-            parent.appendChild(node.stateNode);
+            parent.appendChild(node.stateNode as HTMLElement);
         } else if (node.child !== null) {
             // e.g. node is functional component but child is host component, continue with it
             node = node.child;
@@ -47,6 +47,9 @@ export const setValueForProperty = (node: HTMLElement, name: string, value: any 
                 return;
             case "onClick":
                 node.onclick = value;
+                return;
+            case "value":
+                (node as HTMLInputElement).value = value;
                 return;
         }
 

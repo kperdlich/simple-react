@@ -58,7 +58,7 @@ const reconcileChildren = (current: Fiber | null, workInProgress: Fiber, nextChi
 const reconcileChildFibers = (returnFiber: Fiber, currentFirstChild: Fiber | null, newChild: any): Fiber | null => {
     if (typeof newChild === "object") {
         if (newChild.$$typeof) {
-            return reconcileSingleElement(returnFiber, currentFirstChild, newChild);
+            return placeSingleChild(reconcileSingleElement(returnFiber, currentFirstChild, newChild));
         }
 
         if (Array.isArray(newChild)) {
@@ -67,7 +67,7 @@ const reconcileChildFibers = (returnFiber: Fiber, currentFirstChild: Fiber | nul
     }
 
     if (typeof newChild === "string" || typeof newChild === "number") {
-        return reconcileSingleTextNode(returnFiber, currentFirstChild, newChild);
+        return placeSingleChild(reconcileSingleTextNode(returnFiber, currentFirstChild, newChild));
     }
 
     return null;
@@ -84,7 +84,6 @@ const reconcileSingleTextNode = (returnFiber: Fiber, currentFirstChild: Fiber | 
 
     const newFiber = createFiberFromText(textContent);
     newFiber.return = returnFiber;
-    //newFiber.flags |= Placement; // Technical this is part of placeSingleChild() but anyways ...
     return newFiber;
 }
 
@@ -114,7 +113,6 @@ const reconcileSingleElement = (returnFiber: Fiber, currentFirstChild: Fiber | n
 
     const newFiber = createFiberFromTypeAndProps(element.type, element.key, element.props);
     newFiber.return = returnFiber;
-    //newFiber.flags |= Placement; // Technical this is part of placeSingleChild() but anyways ...
     return newFiber;
 }
 
@@ -163,14 +161,14 @@ const reconcileChildrenArray = (returnFiber: Fiber, currentFirstChild: Fiber | n
 
     if (oldFiber === null) {
         // No more existing children, only insertions
-        let prevFiber: Fiber | null = null;
-        for (let i = 0; i < newChildren.length; ++i) {
-            const newFiber = createChild(returnFiber, newChildren[i]);
-            if (prevFiber === null) {
-                firstChild = prevFiber = newFiber;
+        for (; index < newChildren.length; ++index) {
+            const newFiber = createChild(returnFiber, newChildren[index]);
+            if (previousNewFiber === null) {
+                firstChild = newFiber;
             } else {
-                prevFiber.sibling = prevFiber = newFiber;
+                previousNewFiber.sibling = newFiber;
             }
+            previousNewFiber = newFiber;
         }
         return firstChild;
     }
@@ -405,4 +403,11 @@ const updateTextNode = (returnFiber: Fiber, current: Fiber | null, textContent: 
         existing.sibling = null;
         return existing;
     }
+}
+
+const placeSingleChild = (newFiber: Fiber) => {
+    if (newFiber.alternate === null) {
+        newFiber.flags |= Placement;
+    }
+    return newFiber;
 }

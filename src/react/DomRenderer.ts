@@ -55,7 +55,7 @@ export type Fiber = {
     memoizedState: Hook | HostState | null,
     key: string | null,
     tag: number | null;
-    stateNode: HTMLElement | Text | null;
+    stateNode: HTMLElement | Text | RootFiber | null;
     updateQueue: HostState | EffectQueueState | any[] | null,
     flags: number;
     alternate: Fiber | null,
@@ -109,11 +109,12 @@ export const render = (startComponent: () => JSX.Element) => {
     hostAlternate.alternate = host;
 
     rootFiber.current = hostAlternate;
+    hostAlternate.stateNode = rootFiber;
+    host.stateNode = rootFiber;
 
     rerender(host);
 
     hostAlternate.updates = false;
-    //host.alternate.child = host.child;
 }
 
 const beginWork = (current: Fiber | null, workInProgress: Fiber): Fiber | null => {
