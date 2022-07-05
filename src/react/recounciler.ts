@@ -1,12 +1,12 @@
 import {
     createFiberFromText,
     createFiberFromTypeAndProps,
-    Fiber, HostState, HostText, NoFlags,
+    Fiber, HostState, HostText,
     PerformedWork,
     Placement,
     ReactElement
 } from "./DomRenderer";
-import {prepareToUseHooks} from "./Hooks";
+import {NoFlags, prepareToUseHooks} from "./Hooks";
 
 export const updateFunctionalComponent = (current: Fiber | null, workInProgress: Fiber): Fiber | null => {
     if (current === null) {
@@ -97,6 +97,7 @@ const reconcileSingleElement = (returnFiber: Fiber, currentFirstChild: Fiber | n
         if (child.key === elementKey) {
             if (elementType === child.type) {
                 const existing = createWorkInProgress(child, element.props);
+                existing.return = returnFiber;
                 existing.sibling = null;
                 return existing
             } else {
@@ -330,7 +331,7 @@ const createWorkInProgress = (current: Fiber, pendingProps: any): Fiber => {
             alternate: current,
             flags: NoFlags,
             stateNode: current.stateNode,
-            updateQueue: null
+            updateQueue: current.updateQueue
         };
 
         current.alternate = workInProgress;
@@ -347,7 +348,7 @@ const createWorkInProgress = (current: Fiber, pendingProps: any): Fiber => {
         workInProgress.memoizedState = current.memoizedState;
         workInProgress.memoizedProps = current.memoizedProps;
         workInProgress.sibling = current.sibling;
-        workInProgress.updateQueue = null;
+        workInProgress.updateQueue = current.updateQueue;
     }
 
     return workInProgress;
@@ -400,6 +401,7 @@ const updateTextNode = (returnFiber: Fiber, current: Fiber | null, textContent: 
     } else {
         // Update
         const existing = createWorkInProgress(current, textContent)
+        existing.return = returnFiber;
         existing.sibling = null;
         return existing;
     }

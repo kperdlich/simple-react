@@ -7,11 +7,11 @@ import {
 } from "./recounciler";
 import {completeUnitOfWork} from "./CompleteWork";
 import {commitPassiveMountEffects, commitPassiveUnmountEffects, commitRoot} from "./CommitPass";
+import {NoFlags} from "./Hooks";
 
 export type RootFiber = {
     containerInfo: HTMLElement;
     current: Fiber | null;
-    finishedWork: Fiber | null;
 }
 
 export type HostState = {
@@ -69,7 +69,6 @@ export type ReactElement = {
     props: any | null,
 };
 
-export const NoFlags = 0b000000000000;
 export const PerformedWork = 0b00000000001;
 export const Placement = 0b00000000010
 export const Update = 0b000000000100;
@@ -82,7 +81,7 @@ export const HostText = 6;
 
 let rootFiber: RootFiber;
 
-export let currentFiber: Fiber;
+let currentFiber: Fiber;
 
 let nextUnitOfWork: Fiber | null = null;
 
@@ -109,11 +108,12 @@ export const render = (startComponent: () => JSX.Element) => {
     host.alternate = hostAlternate;
     hostAlternate.alternate = host;
 
-    rootFiber.current = host;
+    rootFiber.current = hostAlternate;
 
     rerender(host);
 
     hostAlternate.updates = false;
+    //host.alternate.child = host.child;
 }
 
 const beginWork = (current: Fiber | null, workInProgress: Fiber): Fiber | null => {
@@ -163,6 +163,8 @@ const rerender = (work: Fiber) => {
         nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
     }
 
+    swapBuffers();
+
     if (rootFiber.current === null) {
         throw Error("rootFiber.current === null");
     }
@@ -171,22 +173,15 @@ const rerender = (work: Fiber) => {
     if (rootFiber.current.alternate === null) {
         throw Error("rootFiber.current.alternate === null");
     }
-
     commitPassiveUnmountEffects(rootFiber.current);
     commitPassiveMountEffects(rootFiber.current);
 
-    // Swap Buffers
-    if (rootFiber.finishedWork === null) {
-        // First render
-        rootFiber.current.alternate.child = rootFiber.current.child;
-    } else {
-        // Rerender
-        const newFinishedWork = rootFiber.current;
-        const oldWork = rootFiber.finishedWork;
+    rootFiber.current.alternate.child = rootFiber.current.child; // Points WIP to current first child
+}
 
-        rootFiber.finishedWork = newFinishedWork;
-        rootFiber.current = oldWork;
-    }
+const swapBuffers = () => {
+    const newFinishedWork = rootFiber.current!.alternate;
+    rootFiber.current = newFinishedWork;
 }
 
 export const createFiberFromText = (content: string | number): Fiber => {
@@ -240,15 +235,14 @@ const createRootFiber = (root: HTMLElement): RootFiber => {
     return {
         containerInfo: root,
         current: null,
-        finishedWork: null,
     };
 }
 
 export const scheduleUpdate = () => {
-    if (rootFiber.current === null) {
+    if (rootFiber.current === null || rootFiber.current.alternate === null) {
         throw Error("rootFiber.current === null");
     }
-    rerender(rootFiber.current);
+    rerender(rootFiber.current.alternate);
 };
 
 
@@ -257,12 +251,21 @@ export const setCurrentFiber = (fiber: Fiber) => {
     currentFiber = fiber;
 }
 
+export const getCurrentFiber = () => currentFiber;
 
 export const markUpdateLaneFromFiberToRoot = (fiber: Fiber) => {
     fiber.updates = true;
+
+    if (fiber.alternate !== null) {
+        fiber.alternate.updates = true;
+    }
+
     let parent = fiber.return;
     while (parent !== null) {
         parent.childUpdates = true;
+        if (parent.alternate !== null) {
+            parent.alternate.childUpdates = true;
+        }
         parent = parent.return;
     }
 }

@@ -1,13 +1,15 @@
 import {
-    currentFiber, EffectQueueState, EffectState, Fiber,
+    EffectQueueState, EffectState, Fiber, getCurrentFiber,
     Hook,
     HookAction,
     markUpdateLaneFromFiberToRoot,
     scheduleUpdate, setCurrentFiber
 } from "./DomRenderer";
 
-export const NoFlags = 0b0000;
-export const HasEffect = 0b0001; // Represents whether effect should fire.
+export const NoFlags    =   0b0000;
+export const HasEffect  =   0b0001; // Represents whether effect should fire.
+export const Passive    =   0b1000; // React has more phases but let's keep it simple (default case)
+
 
 let firstCurrentFiberHook: Hook | null = null;
 let currentHook: Hook | null = null;
@@ -17,9 +19,10 @@ let currentHook: Hook | null = null;
  * @param effect - Effect to push
  */
 const pushEffect = (effect: EffectState): EffectState => {
+    const currentFiber = getCurrentFiber();
     if (currentFiber.updateQueue === null) {
         // Create queue and add effect
-        currentFiber.updateQueue = { lastEffect: null };
+        currentFiber.updateQueue = {lastEffect: null};
         currentFiber.updateQueue.lastEffect = effect.next = effect;
     } else {
         const updateQueue = currentFiber.updateQueue as EffectQueueState;
@@ -65,21 +68,20 @@ export const useEffect = (action: () => (() => void) | undefined, deps?: any[]) 
     const hook = resolveOrCreateHook();
     if (hook.state === null) {
         // Initial Creation
-        const newEffect: EffectState = {create: action, deps: newDeps, destroy: null, next: null, tag: HasEffect};
+        const newEffect: EffectState = {create: action, deps: newDeps, destroy: null, next: null, tag: Passive | HasEffect};
         hook.state = pushEffect(newEffect);
         return;
     }
 
-    const newEffect = {create: action, deps: newDeps, destroy: null, next: null, tag: NoFlags};
-    const oldDeps = (hook.state as EffectState).deps;
+    const prevEffect: EffectState = hook.state;
+    const newEffect = {create: action, deps: newDeps, destroy: prevEffect.destroy, next: null, tag: Passive};
+    const oldDeps = prevEffect.deps;
 
     if (newDeps !== null) {
-        for (let i = 0; i < newDeps.length; ++i) {
-            if (areHookInputsEqual(newDeps, oldDeps)) {
-                // We always push the effects into the queue - during commit it will only be executed depending on the flags
-                hook.state = pushEffect(newEffect);
-                return;
-            }
+        if (areHookInputsEqual(newDeps, oldDeps)) {
+            // We always push the effects into the queue - during commit it will only be executed depending on the flags
+            hook.state = pushEffect(newEffect);
+            return;
         }
     }
     // There has been a change/effect, apply.
@@ -89,12 +91,14 @@ export const useEffect = (action: () => (() => void) | undefined, deps?: any[]) 
 
 export const prepareToUseHooks = (fiber: Fiber) => {
     setCurrentFiber(fiber);
-    firstCurrentFiberHook = currentFiber.memoizedState as Hook;
+    firstCurrentFiberHook = fiber.memoizedState as Hook;
     currentHook = null;
+    fiber.updateQueue = null; // Outdated and for effects destroy is still in state
 }
 
 export const resolveOrCreateHook = <T>(initialState?: T): Hook => {
-    const initState = initialState === undefined ? null: initialState;
+    const currentFiber = getCurrentFiber();
+    const initState = initialState === undefined ? null : initialState;
     if (firstCurrentFiberHook === null && currentHook === null) {
         // Initial rendering, first hook
         const newHook: Hook = {state: initState, next: null, queue: null};
@@ -121,7 +125,7 @@ export const resolveOrCreateHook = <T>(initialState?: T): Hook => {
 export const useState = <T>(initialValue: T): [T, (value: T | ((current: T) => T)) => void] => {
     const hook = resolveOrCreateHook(initialValue);
     updateState(hook);
-    const hookFiber = currentFiber;
+    const hookFiber = getCurrentFiber();
 
     const setState = (newValue: T | ((current: T) => T)) => {
         const hookAction: HookAction = {

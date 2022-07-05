@@ -9,7 +9,7 @@ import {
     Update
 } from "./DomRenderer";
 import {setValueForProperty} from "./DOMComponent";
-import {HasEffect} from "./Hooks";
+import {HasEffect, NoFlags, Passive} from "./Hooks";
 
 export const commitRoot = (workInProgressRoot: Fiber, root: RootFiber) => {
     commitMutationEffectsOnFiber(workInProgressRoot, root);
@@ -45,7 +45,7 @@ const commitMutationEffectsOnFiber = (finishedWork: Fiber, root: RootFiber) => {
             return;
         case HostRoot:
             // Hack to avoid subtree flags
-            if (finishedWork.child && finishedWork.child.flags & Placement) {
+            if (finishedWork.child && (finishedWork.child.flags & Placement)) {
                 insertOrAppendPlacementNodeIntoContainer(finishedWork.child, root.containerInfo);
             }
             recursivelyTraverseMutationEffects(root, finishedWork);
@@ -134,7 +134,7 @@ const commitPassiveMountEffects_complete = (fiberWithEffect: Fiber | null): Fibe
     while (nextEffect !== null) {
         switch (nextEffect.tag) {
             case FunctionalComponent:
-                commitHookEffectListMount(nextEffect);
+                commitHookEffectListMount(Passive | HasEffect, nextEffect);
                 break;
         }
 
@@ -148,7 +148,7 @@ const commitPassiveMountEffects_complete = (fiberWithEffect: Fiber | null): Fibe
     return null;
 }
 
-const commitHookEffectListMount = (finishedWork: Fiber) => {
+const commitHookEffectListMount = (flags: number, finishedWork: Fiber) => {
     const updateQueue = (finishedWork.updateQueue as EffectQueueState);
     const lastEffect = updateQueue !== null ? updateQueue.lastEffect : null;
 
@@ -157,7 +157,7 @@ const commitHookEffectListMount = (finishedWork: Fiber) => {
         let effect = firstEffect;
 
         do {
-            if (effect.tag & HasEffect) {
+            if ((effect.tag & flags) === flags) {
                 const destroy = effect.create();
                 if (destroy !== undefined) {
                     effect.destroy = destroy;
@@ -217,7 +217,7 @@ const commitPassiveUnmountEffectsInsideOfDeletedTree_begin = (deletedSubtreeRoot
     while (nextEffect !== null) {
         switch (nextEffect.tag) {
             case FunctionalComponent: // Only functional components have effects!
-                commitHookEffectListUnmount(nextEffect);
+                commitHookEffectListUnmount(Passive, nextEffect);
                 break;
         }
 
@@ -261,7 +261,7 @@ const commitPassiveUnmountEffects_complete = (effect: Fiber | null): Fiber | nul
     while (nextEffect !== null) {
         switch (nextEffect.tag) {
             case FunctionalComponent:
-                commitHookEffectListUnmount(nextEffect);
+                commitHookEffectListUnmount(Passive | HasEffect, nextEffect);
                 break;
         }
 
@@ -278,9 +278,11 @@ const commitPassiveUnmountEffects_complete = (effect: Fiber | null): Fiber | nul
 
 /**
  * Iterate over circular update queue add call destroy if flag "HasEffect" is set
+ * @param flags: Flags that are required to call destroy
  * @param finishedWork - Fiber to process update queue
+ *
  */
-const commitHookEffectListUnmount = (finishedWork: Fiber) => {
+const commitHookEffectListUnmount = (flags: number, finishedWork: Fiber) => {
     const updateQueue = (finishedWork.updateQueue as EffectQueueState);
     const lastEffect = updateQueue !== null ? updateQueue.lastEffect : null;
 
@@ -289,7 +291,7 @@ const commitHookEffectListUnmount = (finishedWork: Fiber) => {
         let effect = firstEffect;
 
         do {
-            if (effect.tag & HasEffect) {
+            if ((effect.tag & flags) === flags) {
                 const destroy = effect.destroy;
                 if (destroy !== null) {
                     try {
@@ -305,9 +307,10 @@ const commitHookEffectListUnmount = (finishedWork: Fiber) => {
 }
 
 const detachFiberAfterEffects = (fiber: Fiber) => {
-    if (fiber.alternate !== null) {
-        detachFiberAfterEffects(fiber.alternate);
+    const alternate = fiber.alternate;
+    if (alternate !== null) {
         fiber.alternate = null;
+        detachFiberAfterEffects(alternate);
     }
 
     fiber.child = null;
