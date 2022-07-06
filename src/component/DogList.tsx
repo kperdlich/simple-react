@@ -32,7 +32,8 @@ export const DogList = () => {
 
     return (
         <div>
-            <button onClick={fetchDog}>Add new Dog</button>
+            <h1>!!! Best Site Ever !!!</h1>
+            <img className={"button"} src={"bunny.gif"} onClick={fetchDog}>More Dogs</img>
             <ul>
                 {dogs.map((dog, index) => <DogItem key={dog} src={dog} index={index} onDelete={onDeleteDog}/>)}
             </ul>
