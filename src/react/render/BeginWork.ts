@@ -18,7 +18,7 @@ export const beginWork = (current: Fiber | null, workInProgress: Fiber): Fiber |
         const newProps = workInProgress.pendingProps;
 
         // Updated by state changes
-        // Remember: A update is always scheduled on the current fiber displayed when the update happens
+        // Remember: A update is always scheduled on the current fiber (prev committed work)
         if (!current.updates && oldProps === newProps) {
             return attemptEarlyBailoutIfNoScheduledUpdate(current, workInProgress);
         }
