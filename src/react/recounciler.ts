@@ -126,11 +126,11 @@ const reconcileSingleElement = (returnFiber: Fiber, currentFirstChild: Fiber | n
  */
 const reconcileChildrenArray = (returnFiber: Fiber, currentFirstChild: Fiber | null, newChildren: any[]): Fiber | null => {
     let oldFiber = currentFirstChild;
-    let firstChild = currentFirstChild;
 
     let index = 0;
     let nextOldFiber: Fiber | null = null;
     let previousNewFiber: Fiber | null = null;
+    let resultingFirstChild: Fiber | null = null;
 
     // Check new children against existing fibers using key and try to update
     for (; oldFiber !== null && index < newChildren.length; ++index) {
@@ -145,7 +145,7 @@ const reconcileChildrenArray = (returnFiber: Fiber, currentFirstChild: Fiber | n
         }
 
         if (previousNewFiber === null) {
-            firstChild = newFiber;
+            resultingFirstChild = newFiber;
         } else {
             previousNewFiber.sibling = newFiber;
         }
@@ -156,7 +156,7 @@ const reconcileChildrenArray = (returnFiber: Fiber, currentFirstChild: Fiber | n
     if (index === newChildren.length) {
         // All new children have been processed, the rest can be deleted
         deleteRemainingChildren(returnFiber, oldFiber);
-        return firstChild;
+        return resultingFirstChild;
     }
 
     if (oldFiber === null) {
@@ -164,13 +164,13 @@ const reconcileChildrenArray = (returnFiber: Fiber, currentFirstChild: Fiber | n
         for (; index < newChildren.length; ++index) {
             const newFiber = createChild(returnFiber, newChildren[index]);
             if (previousNewFiber === null) {
-                firstChild = newFiber;
+                resultingFirstChild = newFiber;
             } else {
                 previousNewFiber.sibling = newFiber;
             }
             previousNewFiber = newFiber;
         }
-        return firstChild;
+        return resultingFirstChild;
     }
 
     // Generate remaining children's map: key -> fiber.
@@ -195,7 +195,7 @@ const reconcileChildrenArray = (returnFiber: Fiber, currentFirstChild: Fiber | n
         }
 
         if (previousNewFiber === null) {
-            firstChild = newFiber;
+            resultingFirstChild = newFiber;
         } else {
             previousNewFiber.sibling = newFiber;
         }
@@ -207,7 +207,7 @@ const reconcileChildrenArray = (returnFiber: Fiber, currentFirstChild: Fiber | n
         deleteChild(returnFiber, value);
     });
 
-    return firstChild;
+    return resultingFirstChild;
 }
 
 const updateFromMap = (existingChildren: Map<string | Fiber, Fiber>, returnFiber: Fiber, newChild: ReactElement | any) => {
