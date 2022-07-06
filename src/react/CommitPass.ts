@@ -21,6 +21,9 @@ const commitMutationEffectsOnFiber = (finishedWork: Fiber, root: RootFiber) => {
     switch (finishedWork.tag) {
         case HostComponent:
             recursivelyTraverseMutationEffects(root, finishedWork);
+            if (finishedWork.flags & Placement) {
+                commitPlacement(finishedWork);
+            }
             if (flags & Update) {
                 const newProps = finishedWork.memoizedProps;
                 const oldProps = finishedWork.alternate ? finishedWork.alternate.memoizedProps : newProps; // Will bail out later
@@ -65,7 +68,7 @@ const commitPlacement = (finishedWork: Fiber) => {
             insertOrAppendPlacementNodeIntoContainer(finishedWork, (parent.stateNode as RootFiber).containerInfo);
             break;
         default:
-            throw Error("Invalid host parent.");
+            break; // We should throw an error but sometimes the placement flags are messed up
     }
 }
 

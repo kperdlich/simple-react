@@ -6,9 +6,9 @@ import {
     scheduleUpdate, setCurrentFiber
 } from "./DomRenderer";
 
-export const NoFlags    =   0b0000;
-export const HasEffect  =   0b0001; // Represents whether effect should fire.
-export const Passive    =   0b1000; // React has more phases but let's keep it simple (default case)
+export const NoFlags = 0b0000;
+export const HasEffect = 0b0001; // Represents whether effect should fire.
+export const Passive = 0b1000; // React has more phases but let's keep it simple (default case)
 
 
 let firstCurrentFiberHook: Hook | null = null;
@@ -68,7 +68,13 @@ export const useEffect = (action: () => (() => void) | undefined, deps?: any[]) 
     const hook = resolveOrCreateHook();
     if (hook.state === null) {
         // Initial Creation
-        const newEffect: EffectState = {create: action, deps: newDeps, destroy: null, next: null, tag: Passive | HasEffect};
+        const newEffect: EffectState = {
+            create: action,
+            deps: newDeps,
+            destroy: null,
+            next: null,
+            tag: Passive | HasEffect
+        };
         hook.state = pushEffect(newEffect);
         return;
     }
@@ -77,13 +83,12 @@ export const useEffect = (action: () => (() => void) | undefined, deps?: any[]) 
     const newEffect = {create: action, deps: newDeps, destroy: prevEffect.destroy, next: null, tag: Passive};
     const oldDeps = prevEffect.deps;
 
-    if (newDeps !== null) {
-        if (areHookInputsEqual(newDeps, oldDeps)) {
-            // We always push the effects into the queue - during commit it will only be executed depending on the flags
-            hook.state = pushEffect(newEffect);
-            return;
-        }
+    if (areHookInputsEqual(newDeps, oldDeps)) {
+        // We always push the effects into the queue - during commit it will only be executed depending on the flags
+        hook.state = pushEffect(newEffect);
+        return;
     }
+
     // There has been a change/effect, apply.
     newEffect.tag |= HasEffect;
     hook.state = pushEffect(newEffect);
