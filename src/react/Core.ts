@@ -64,7 +64,7 @@ const rerender = (work: Fiber) => {
         throw Error("rootFiber.current === null");
     }
 
-    commitRoot({workInProgressRoot: rootFiber.current, root: rootFiber});
+    commitRoot(rootFiber.current, rootFiber);
     if (rootFiber.current.alternate === null) {
         throw Error("rootFiber.current.alternate === null");
     }

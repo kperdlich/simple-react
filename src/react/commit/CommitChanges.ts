@@ -1,7 +1,7 @@
 import {setValueForProperty} from "../dom/DOMComponent";
 import {Fiber, FunctionalComponent, HostComponent, HostRoot, HostText, Placement, RootFiber, Update} from "../Fiber";
 
-export const commitRoot = ({workInProgressRoot, root}: { workInProgressRoot: Fiber, root: RootFiber }) => {
+export const commitRoot = (workInProgressRoot: Fiber, root: RootFiber) => {
     commitMutationEffectsOnFiber(workInProgressRoot, root);
 }
 
