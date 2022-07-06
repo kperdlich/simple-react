@@ -163,6 +163,9 @@ const reconcileChildrenArray = (returnFiber: Fiber, currentFirstChild: Fiber | n
         // No more existing children, only insertions
         for (; index < newChildren.length; ++index) {
             const newFiber = createChild(returnFiber, newChildren[index]);
+
+            placeSingleChild(newFiber);
+
             if (previousNewFiber === null) {
                 resultingFirstChild = newFiber;
             } else {
