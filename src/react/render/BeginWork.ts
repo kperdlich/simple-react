@@ -1,12 +1,57 @@
+import {prepareToUseHooks} from "../hooks/Hooks";
 import {
-    createFiberFromText,
-    createFiberFromTypeAndProps,
-    Fiber, HostState, HostText,
+    createFiberFromText, createFiberFromTypeAndProps, createWorkInProgress,
+    Fiber,
+    FunctionalComponent,
+    HostComponent,
+    HostRoot,
+    HostState,
+    HostText,
     PerformedWork,
-    Placement,
-    ReactElement
-} from "./DomRenderer";
-import {NoFlags, prepareToUseHooks} from "./Hooks";
+    Placement, ReactElement
+} from "../Fiber";
+import {completeUnitOfWork} from "./CompleteWork";
+
+export const beginWork = (current: Fiber | null, workInProgress: Fiber): Fiber | null => {
+    if (current !== null) {
+        const oldProps = current.memoizedProps;
+        const newProps = workInProgress.pendingProps;
+
+        // Updated by state changes
+        // Remember: A update is always scheduled on the current fiber displayed when the update happens
+        if (!current.updates && oldProps === newProps) {
+            return attemptEarlyBailoutIfNoScheduledUpdate(current, workInProgress);
+        }
+    }
+
+    switch (workInProgress.tag) {
+        case FunctionalComponent:
+            return updateFunctionalComponent(current, workInProgress);
+        case HostRoot:
+            return updateHostRoot(current, workInProgress);
+        case HostComponent:
+            return updateHostComponent(current, workInProgress);
+        case HostText:
+            return updateHostText(current, workInProgress);
+        default:
+            throw Error("Not implemented!");
+    }
+}
+
+
+export const performUnitOfWork = (unitOfWork: Fiber): Fiber | null => {
+    const current = unitOfWork.alternate;
+    let next = beginWork(current, unitOfWork);
+
+    // Props are now fully rendered/updated
+    unitOfWork.memoizedProps = unitOfWork.pendingProps;
+
+    if (next === null) {
+        next = completeUnitOfWork(unitOfWork);
+    }
+    return next;
+}
+
 
 export const updateFunctionalComponent = (current: Fiber | null, workInProgress: Fiber): Fiber | null => {
     if (current === null) {
@@ -311,49 +356,7 @@ const cloneChildFibers = (current: Fiber, workInProgress: Fiber) => {
     newChild.sibling = null;
 }
 
-const createWorkInProgress = (current: Fiber, pendingProps: any): Fiber => {
-    let workInProgress = current.alternate;
 
-    if (workInProgress === null) {
-        // We use double buffering pooling because we know that we'll only ever need two versions of the tree
-        workInProgress = {
-            type: current.type,
-            pendingProps: pendingProps,
-            key: current.key,
-            deletions: null,
-            childUpdates: current.childUpdates,
-            updates: current.updates,
-            child: current.child,
-            memoizedProps: current.memoizedProps,
-            memoizedState: current.memoizedState,
-            sibling: current.sibling,
-            return: null,
-            tag: current.tag,
-            alternate: current,
-            flags: NoFlags,
-            stateNode: current.stateNode,
-            updateQueue: current.updateQueue
-        };
-
-        current.alternate = workInProgress;
-
-    } else {
-        // TODO Copy Tag?
-        workInProgress.pendingProps = pendingProps;
-        workInProgress.type = current.type;
-        workInProgress.flags = NoFlags; // Flags are outdated
-        workInProgress.deletions = null;
-        workInProgress.childUpdates = current.childUpdates;
-        workInProgress.updates = current.updates;
-        workInProgress.child = current.child;
-        workInProgress.memoizedState = current.memoizedState;
-        workInProgress.memoizedProps = current.memoizedProps;
-        workInProgress.sibling = current.sibling;
-        workInProgress.updateQueue = current.updateQueue;
-    }
-
-    return workInProgress;
-}
 
 const updateSlot = (returnFiber: Fiber, oldFiber: Fiber | null, newChild: any): Fiber | null => {
     const key = oldFiber !== null ? oldFiber.key : null;

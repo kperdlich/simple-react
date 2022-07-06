@@ -1,10 +1,5 @@
-import {
-    EffectQueueState, EffectState, Fiber, getCurrentFiber,
-    Hook,
-    HookAction,
-    markUpdateLaneFromFiberToRoot,
-    scheduleUpdate, setCurrentFiber
-} from "./DomRenderer";
+import {EffectQueueState, EffectState, Fiber, Hook, HookAction} from "../Fiber";
+import {getCurrentFiber, scheduleUpdate, setCurrentFiber} from "../Core";
 
 export const NoFlags = 0b0000;
 export const HasEffect = 0b0001; // Represents whether effect should fire.
@@ -177,4 +172,21 @@ const updateState = (hook: Hook): Hook => {
     hook.state = newState;
     hook.queue = null;
     return hook;
+}
+
+const markUpdateLaneFromFiberToRoot = (fiber: Fiber) => {
+    fiber.updates = true;
+
+    if (fiber.alternate !== null) {
+        fiber.alternate.updates = true;
+    }
+
+    let parent = fiber.return;
+    while (parent !== null) {
+        parent.childUpdates = true;
+        if (parent.alternate !== null) {
+            parent.alternate.childUpdates = true;
+        }
+        parent = parent.return;
+    }
 }

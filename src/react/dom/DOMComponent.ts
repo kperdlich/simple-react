@@ -1,4 +1,4 @@
-import {Fiber, HostComponent, HostText} from "./DomRenderer";
+import {Fiber, HostComponent, HostText} from "../Fiber";
 
 export const CHILDREN = "children";
 

@@ -1,5 +1,5 @@
-import {Fiber, FunctionalComponent, HostComponent, HostText, Update} from "./DomRenderer";
-import {appendAllChildren, CHILDREN, createElement, createTextInstance, setInitialDOMProperties} from "./DOMComponent";
+import {appendAllChildren, CHILDREN, createElement, createTextInstance, setInitialDOMProperties} from "../dom/DOMComponent";
+import {Fiber, FunctionalComponent, HostComponent, HostText, Update} from "../Fiber";
 
 export const completeUnitOfWork = (unitOfWork: Fiber): Fiber | null => {
     let completedWork: Fiber | null = unitOfWork;
@@ -30,6 +30,7 @@ export const completeWork = (current: Fiber | null, workInProgress: Fiber): Fibe
     const newProps = workInProgress.pendingProps;
     switch (workInProgress.tag) {
         case FunctionalComponent:
+            // Nothing needs to be done here
             break;
         case HostComponent:
             const type = workInProgress.type;

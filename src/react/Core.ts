@@ -1,0 +1,94 @@
+import {
+    performUnitOfWork,
+} from "./render/BeginWork";
+import {completeUnitOfWork} from "./render/CompleteWork";
+import {commitRoot} from "./commit/CommitChanges";
+import {NoFlags} from "./hooks/Hooks";
+import {commitPassiveMountEffects, commitPassiveUnmountEffects} from "./commit/CommitEffects";
+import {
+    createFiberFromTypeAndProps, createRootFiber,
+    Fiber,
+    FunctionalComponent,
+    HostComponent,
+    HostRoot,
+    HostText,
+    ReactElement,
+    RootFiber
+} from "./Fiber";
+
+let rootFiber: RootFiber;
+let currentFiber: Fiber;
+let nextUnitOfWork: Fiber | null = null;
+
+export const createRoot = (root: HTMLElement) => {
+    rootFiber = createRootFiber(root);
+}
+
+export const render = (startComponent: () => JSX.Element) => {
+    const host = createFiberFromTypeAndProps(null, null, null);
+    host.tag = HostRoot;
+    const element: ReactElement = {
+        $$typeof: "Symbol(react.element)",
+        type: startComponent,
+        props: {},
+        key: null,
+        ref: null
+    };
+    host.updateQueue = {element: element};
+
+    const hostAlternate = createFiberFromTypeAndProps(null, null, null);
+    hostAlternate.tag = HostRoot;
+    hostAlternate.updates = true; // Force Update to prevent initial render bailout
+
+    host.alternate = hostAlternate;
+    hostAlternate.alternate = host;
+
+    rootFiber.current = hostAlternate;
+    hostAlternate.stateNode = rootFiber;
+    host.stateNode = rootFiber;
+
+    rerender(host);
+
+    hostAlternate.updates = false;
+}
+
+const rerender = (work: Fiber) => {
+    nextUnitOfWork = work;
+    while (nextUnitOfWork !== null) {
+        nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
+    }
+
+    swapBuffers();
+
+    if (rootFiber.current === null) {
+        throw Error("rootFiber.current === null");
+    }
+
+    commitRoot({workInProgressRoot: rootFiber.current, root: rootFiber});
+    if (rootFiber.current.alternate === null) {
+        throw Error("rootFiber.current.alternate === null");
+    }
+    commitPassiveUnmountEffects(rootFiber.current);
+    commitPassiveMountEffects(rootFiber.current);
+
+    rootFiber.current.alternate.child = rootFiber.current.child; // Points WIP to current first child
+}
+
+const swapBuffers = () => {
+    const newFinishedWork = rootFiber.current!.alternate;
+    rootFiber.current = newFinishedWork;
+}
+
+export const scheduleUpdate = () => {
+    if (rootFiber.current === null || rootFiber.current.alternate === null) {
+        throw Error("rootFiber.current === null");
+    }
+    rerender(rootFiber.current.alternate);
+};
+
+
+export const setCurrentFiber = (fiber: Fiber) => {
+    currentFiber = fiber;
+}
+
+export const getCurrentFiber = () => currentFiber;

@@ -1,4 +1,4 @@
-import {useState} from "../react/Hooks";
+import {useState} from "../react/hooks/Hooks";
 
 interface DogItemProps {
     readonly src: string;

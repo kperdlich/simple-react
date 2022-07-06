@@ -1,4 +1,4 @@
-import {useEffect, useState} from "../react/Hooks";
+import {useEffect, useState} from "../react/hooks/Hooks";
 
 interface EntryProps {
     readonly onDelete: () => void;
