@@ -177,16 +177,9 @@ const updateState = (hook: Hook): Hook => {
 const markUpdateLaneFromFiberToRoot = (fiber: Fiber) => {
     fiber.updates = true;
 
-    if (fiber.alternate !== null) {
-        fiber.alternate.updates = true;
-    }
-
     let parent = fiber.return;
     while (parent !== null) {
         parent.childUpdates = true;
-        if (parent.alternate !== null) {
-            parent.alternate.childUpdates = true;
-        }
         parent = parent.return;
     }
 }

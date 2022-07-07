@@ -304,11 +304,11 @@ const createChild = (returnFiber: Fiber, newChild: any): Fiber => {
         }
 
         if (Array.isArray(newChild)) {
-            throw Error("Array wtf :O");
+            throw Error("Array not supported!");
         }
     }
 
-    throw Error("Unknown Type wtf :O");
+    throw Error("Unknown Type!");
 }
 
 const renderWithHooks = (current: Fiber | null, workInProgress: Fiber, Component: (any) => any, props: any): any => {
@@ -323,7 +323,7 @@ export const attemptEarlyBailoutIfNoScheduledUpdate = (current: Fiber, workInPro
     // Actually following code is part of called function bailoutOnAlreadyFinishedWork
 
     // Only bail out if there is no work scheduled on children
-    if (!workInProgress.childUpdates) {
+    if (!current.childUpdates) {
         return null;
     }
 
