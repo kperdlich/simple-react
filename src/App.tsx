@@ -1,12 +1,33 @@
 import React from 'react';
 import './App.css';
 import {DogList} from "./component/DogList";
+import {useState} from "./react/hooks/Hooks";
 
-function App() {
+const App = () => {
+    const [values, setValues] = useState<string[]>(["Test1", "Test2"]);
+    const [inputValue, setInputValue] = useState("");
 
     return (
         <div className="App">
-            <DogList/>
+            <input value={inputValue} onChange={(event) => setInputValue(event.target.value)}/>
+            <button
+                onClick={() => {
+                    setValues((currentValues) => [...currentValues, inputValue]);
+                    setInputValue("");
+                }}>
+                Add
+            </button>
+            <ul>
+                {values.map(currentValue =>
+                    <li
+                        onClick={() => {
+                            setValues(values.filter(value => value !== currentValue))
+                        }}
+                        key={currentValue}>
+                        {currentValue}
+                    </li>
+                )}
+            </ul>
         </div>
     );
 }

@@ -1,6 +1,11 @@
 import {setValueForProperty} from "../dom/DOMComponent";
 import {Fiber, FunctionalComponent, HostComponent, HostRoot, HostText, Placement, RootFiber, Update} from "../Fiber";
 
+/**
+ * Recursively iterates over the fiber tree and updates/deletes/inserts DOM Elements
+ * @param workInProgressRoot
+ * @param root
+ */
 export const commitRoot = (workInProgressRoot: Fiber, root: RootFiber) => {
     commitMutationEffectsOnFiber(workInProgressRoot, root);
 }
@@ -113,6 +118,14 @@ const insertOrAppendPlacementNodeIntoContainer = (node: Fiber, parent: HTMLEleme
     }
 }
 
+/**
+ *
+ * @param domElement
+ * @param updatePayload
+ * @param type
+ * @param oldProps
+ * @param newProps
+ */
 const updateDOMProperties = (domElement: HTMLElement, updatePayload: any[], type: string, oldProps: any, newProps: any) => {
     for (let i = 0; i < updatePayload.length; i += 2) {
         const propKey = updatePayload[i];

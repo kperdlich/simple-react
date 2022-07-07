@@ -52,11 +52,15 @@ export const render = (startComponent: () => JSX.Element) => {
     hostAlternate.updates = false;
 }
 
-const rerender = (work: Fiber) => {
+const workLoop = (work: Fiber) => {
     nextUnitOfWork = work;
     while (nextUnitOfWork !== null) {
         nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
     }
+}
+
+const rerender = (work: Fiber) => {
+    workLoop(work);
 
     swapBuffers();
 
@@ -74,6 +78,12 @@ const rerender = (work: Fiber) => {
     rootFiber.current.alternate.child = rootFiber.current.child; // Points WIP to current first child
 }
 
+
+
+
+/**
+ * RootFiber current points the current.alternate
+ */
 const swapBuffers = () => {
     const newFinishedWork = rootFiber.current!.alternate;
     rootFiber.current = newFinishedWork;

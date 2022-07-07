@@ -7,7 +7,6 @@ import {
     HostRoot,
     HostState,
     HostText,
-    PerformedWork,
     Placement, ReactElement
 } from "../Fiber";
 import {completeUnitOfWork} from "./CompleteWork";
@@ -61,7 +60,6 @@ export const updateFunctionalComponent = (current: Fiber | null, workInProgress:
     const props = workInProgress.pendingProps;
     const children = renderWithHooks(current, workInProgress, component, props);
 
-    workInProgress.flags |= PerformedWork;
     reconcileChildren(current, workInProgress, children);
     return workInProgress.child;
 }

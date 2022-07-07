@@ -1,6 +1,6 @@
 import './index.css';
 import App from './App';
-import {createRoot, render} from "./react/Core";
+import {createRoot, render} from "./react/Reconciliation";
 
 const root = createRoot(document.getElementById('root') as HTMLElement);
 

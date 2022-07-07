@@ -1,5 +1,5 @@
 import {EffectQueueState, EffectState, Fiber, Hook, HookAction} from "../Fiber";
-import {getCurrentFiber, scheduleUpdate, setCurrentFiber} from "../Core";
+import {getCurrentFiber, scheduleUpdate, setCurrentFiber} from "../Reconciliation";
 
 export const NoFlags = 0b0000;
 export const HasEffect = 0b0001; // Represents whether effect should fire.

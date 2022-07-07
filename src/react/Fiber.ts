@@ -34,36 +34,34 @@ export type HookAction = {
 }
 
 export type Fiber = {
-    type: any,
+    type: any, // div, span, .. or () => FunctionalComponent e.g () => App
     return: Fiber | null,
     child: Fiber | null,
     deletions: Fiber[] | null,
     sibling: Fiber | null
     childUpdates: boolean, // childLane
     updates: boolean, // lanes
-    pendingProps: any | null,
-    memoizedProps: any | null,
-    memoizedState: Hook | HostState | null,
+    pendingProps: any | null, // New JSX Props
+    memoizedProps: any | null, // JSX Props from last render
+    memoizedState: Hook | HostState | null, // Stored Hooks
     key: string | null,
-    tag: number | null;
+    tag: number | null; // HostComponent, FunctionalComponent, ...
     stateNode: HTMLElement | Text | RootFiber | null;
-    updateQueue: HostState | EffectQueueState | any[] | null,
-    flags: number;
+    updateQueue: HostState | EffectQueueState | any[] | null, // DOM prop changes key/value, Root State, or effects to trigger
+    flags: number; // Update, Placement
     alternate: Fiber | null,
 }
 
 export type ReactElement = {
-    $$typeof: any,
-    type: any,
-    key: any | null,
+    $$typeof: any, // ReactElement, ReactFragment ...
+    type: any, // div, span, () => FunctionalComponent
+    key: string | null,
     ref: any | null,
     props: any | null,
 };
 
-export const PerformedWork = 0b00000000001;
 export const Placement = 0b00000000010
 export const Update = 0b000000000100;
-export const Deletion = 0b000000001000;
 
 export const FunctionalComponent = 0;
 export const HostRoot = 3;
