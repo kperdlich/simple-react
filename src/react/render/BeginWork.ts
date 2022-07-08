@@ -240,6 +240,8 @@ const reconcileChildrenArray = (returnFiber: Fiber, currentFirstChild: Fiber | n
             existingChildren.delete(newFiber.key);
         }
 
+        placeSingleChild(newFiber);
+
         if (previousNewFiber === null) {
             resultingFirstChild = newFiber;
         } else {

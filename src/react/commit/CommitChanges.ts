@@ -57,10 +57,11 @@ const commitPlacement = (finishedWork: Fiber) => {
     const parent = finishedWork.return!;
     switch (parent.tag) {
         case HostComponent:
-            insertOrAppendPlacementNodeIntoContainer(finishedWork, parent.stateNode as HTMLElement);
+            const sibling = finishedWork.sibling !== null ? finishedWork.sibling.stateNode as HTMLElement : null;
+            insertOrAppendPlacementNode(finishedWork, sibling, parent.stateNode as HTMLElement);
             break;
         case HostRoot:
-            insertOrAppendPlacementNodeIntoContainer(finishedWork, (parent.stateNode as RootFiber).containerInfo);
+            insertOrAppendPlacementNode(finishedWork, null, (parent.stateNode as RootFiber).containerInfo);
             break;
         default:
             break; // We should throw an error but sometimes the placement flags are messed up
@@ -94,7 +95,7 @@ const commitDeletionEffectsOnFiber = (parentFiber: Fiber, deletedFiber: Fiber) =
     }
 }
 
-const insertOrAppendPlacementNodeIntoContainer = (node: Fiber, parent: HTMLElement) => {
+const insertOrAppendPlacementNode = (node: Fiber, before: HTMLElement | null, parent: HTMLElement) => {
     const tag = node.tag;
     const isHost = tag === HostComponent || tag === HostText;
 
@@ -103,15 +104,20 @@ const insertOrAppendPlacementNodeIntoContainer = (node: Fiber, parent: HTMLEleme
         if (stateNode === null) {
             throw Error("insertOrAppendPlacementNodeIntoContainer: stateNode === null");
         }
-        parent.appendChild(stateNode as HTMLElement);
+
+        if (before !== null) {
+            parent.insertBefore(stateNode as HTMLElement, before);
+        } else {
+            parent.appendChild(stateNode as HTMLElement);
+        }
     } else {
         const child = node.child;
         if (child !== null) {
-            insertOrAppendPlacementNodeIntoContainer(child, parent);
+            insertOrAppendPlacementNode(child, before, parent);
             let sibling = child.sibling;
 
             while (sibling !== null) {
-                insertOrAppendPlacementNodeIntoContainer(sibling, parent);
+                insertOrAppendPlacementNode(sibling, before, parent);
                 sibling = sibling.sibling;
             }
         }
