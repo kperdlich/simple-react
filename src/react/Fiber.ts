@@ -15,7 +15,7 @@ export type EffectQueueState = {
 
 export type EffectState = {
     tag: number;
-    create: () => (() => void) | undefined;
+    create: () => (() => void) | void;
     deps: any[] | null;
     destroy: (() => void) | null;
     next: EffectState | null;

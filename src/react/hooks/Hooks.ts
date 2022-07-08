@@ -58,7 +58,7 @@ const areHookInputsEqual = (nextDeps: any[] | null, prevDeps: any[] | null): boo
     return true;
 }
 
-export const useEffect = (action: () => (() => void) | undefined, deps?: any[]) => {
+export const useEffect = (action: () => (() => void) | void, deps?: any[]) => {
     const newDeps = deps === undefined ? null : deps;
     const hook = resolveOrCreateHook();
     if (hook.state === null) {
@@ -78,10 +78,12 @@ export const useEffect = (action: () => (() => void) | undefined, deps?: any[]) 
     const newEffect = {create: action, deps: newDeps, destroy: prevEffect.destroy, next: null, tag: Passive};
     const oldDeps = prevEffect.deps;
 
-    if (areHookInputsEqual(newDeps, oldDeps)) {
-        // We always push the effects into the queue - during commit it will only be executed depending on the flags
-        hook.state = pushEffect(newEffect);
-        return;
+    if (newDeps !== null) { // Null/Undefined will always trigger
+        if (areHookInputsEqual(newDeps, oldDeps)) {
+            // We always push the effects into the queue - during commit it will only be executed depending on the flags
+            hook.state = pushEffect(newEffect);
+            return;
+        }
     }
 
     // There has been a change/effect, apply.
