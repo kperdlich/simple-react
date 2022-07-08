@@ -15,6 +15,9 @@ let rootFiber: RootFiber;
 let currentFiber: Fiber;
 let nextUnitOfWork: Fiber | null = null;
 
+let isUpdateScheduled = false;
+const scheduleTimeoutMs = 5;
+
 interface Root {
     readonly render: (children: JSX.Element) => void;
 }
@@ -53,6 +56,8 @@ const workLoop = (work: Fiber) => {
 }
 
 const rerender = (work: Fiber) => {
+    const startTime = performance.now()
+
     workLoop(work);
 
     swapBuffers();
@@ -69,6 +74,9 @@ const rerender = (work: Fiber) => {
     commitPassiveMountEffects(rootFiber.current);
 
     rootFiber.current.alternate.child = rootFiber.current.child; // Points WIP to current first child
+
+    const endTime = performance.now()
+    console.log(`Render took ${endTime - startTime} milliseconds`);
 }
 
 
@@ -81,10 +89,16 @@ const swapBuffers = () => {
 }
 
 export const scheduleUpdate = () => {
-    if (rootFiber.current === null || rootFiber.current.alternate === null) {
-        throw Error("rootFiber.current === null");
-    }
-    rerender(rootFiber.current.alternate);
+    if (isUpdateScheduled) return;
+
+    isUpdateScheduled = true
+    setTimeout(() => {
+        if (rootFiber.current === null || rootFiber.current.alternate === null) {
+            throw Error("rootFiber.current === null");
+        }
+        rerender(rootFiber.current.alternate);
+        isUpdateScheduled = false;
+    }, scheduleTimeoutMs);
 };
 
 
