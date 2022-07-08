@@ -1,17 +1,12 @@
 import {
     performUnitOfWork,
 } from "./render/BeginWork";
-import {completeUnitOfWork} from "./render/CompleteWork";
 import {commitRoot} from "./commit/CommitChanges";
-import {NoFlags} from "./hooks/Hooks";
 import {commitPassiveMountEffects, commitPassiveUnmountEffects} from "./commit/CommitEffects";
 import {
     createFiberFromTypeAndProps, createRootFiber,
     Fiber,
-    FunctionalComponent,
-    HostComponent,
     HostRoot,
-    HostText,
     ReactElement,
     RootFiber
 } from "./Fiber";
@@ -20,21 +15,19 @@ let rootFiber: RootFiber;
 let currentFiber: Fiber;
 let nextUnitOfWork: Fiber | null = null;
 
-export const createRoot = (root: HTMLElement) => {
-    rootFiber = createRootFiber(root);
+interface Root {
+    readonly render: (children: JSX.Element) => void;
 }
 
-export const render = (startComponent: () => JSX.Element) => {
+export const createRoot = (root: HTMLElement): Root => {
+    rootFiber = createRootFiber(root);
+    return {render};
+}
+
+const render = (children: JSX.Element) => {
     const host = createFiberFromTypeAndProps(null, null, null);
     host.tag = HostRoot;
-    const element: ReactElement = {
-        $$typeof: "Symbol(react.element)",
-        type: startComponent,
-        props: {},
-        key: null,
-        ref: null
-    };
-    host.updateQueue = {element: element};
+    host.updateQueue = {element: children as ReactElement};
 
     const hostAlternate = createFiberFromTypeAndProps(null, null, null);
     hostAlternate.tag = HostRoot;
@@ -77,8 +70,6 @@ const rerender = (work: Fiber) => {
 
     rootFiber.current.alternate.child = rootFiber.current.child; // Points WIP to current first child
 }
-
-
 
 
 /**
