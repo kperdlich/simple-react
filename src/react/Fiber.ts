@@ -22,7 +22,7 @@ export type EffectState = {
 }
 
 export type Hook = {
-    state: any | EffectState,
+    state: any | EffectState | null,
     next: Hook | null,
     queue: HookAction | null,
 }
