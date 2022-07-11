@@ -2,7 +2,6 @@ import {
     performUnitOfWork,
 } from "./render/BeginWork";
 import {commitRoot} from "./commit/CommitChanges";
-import {commitPassiveMountEffects, commitPassiveUnmountEffects} from "./commit/CommitEffects";
 import {
     createFiberFromTypeAndProps, createRootFiber,
     Fiber,
@@ -10,6 +9,8 @@ import {
     ReactElement,
     RootFiber
 } from "./Fiber";
+import {commitPassiveUnmountEffects} from "./commit/CommitUnmount";
+import {commitPassiveMountEffects} from "./commit/CommitMount";
 
 let rootFiber: RootFiber;
 let currentFiber: Fiber;

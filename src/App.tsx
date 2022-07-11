@@ -1,11 +1,22 @@
 import React from 'react';
 import './App.css';
 import {DogList} from "./component/DogList";
-import {useState} from "./react/hooks/Hooks";
+import {useEffect, useState} from "./react/hooks/Hooks";
 
 const App = () => {
     const [values, setValues] = useState<string[]>(["Test1", "Test2"]);
     const [inputValue, setInputValue] = useState("");
+
+    useEffect(() => {
+        console.log("Mount");
+        return () => {
+            console.log("Unmount");
+        }
+    }, []);
+
+    useEffect(() => {
+        console.log("Input value changed");
+    }, [inputValue])
 
     return (
         <div className="App">
