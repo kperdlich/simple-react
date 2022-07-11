@@ -162,7 +162,7 @@ const commitPassiveUnmountEffects_complete = (effect: Fiber | null): Fiber | nul
 }
 
 /**
- * Iterate over circular update queue add call destroy if flag "HasEffect" is set
+ * Iterate over circular update queue add call destroy if flags match
  * @param flags: Flags that are required to call destroy
  * @param finishedWork - Fiber to process update queue
  *
