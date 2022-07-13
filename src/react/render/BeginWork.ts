@@ -361,7 +361,7 @@ const cloneChildFibers = (current: Fiber, workInProgress: Fiber) => {
 const updateSlot = (returnFiber: Fiber, oldFiber: Fiber | null, newChild: any): Fiber | null => {
     const key = oldFiber !== null ? oldFiber.key : null;
     if (typeof newChild === "string" || typeof newChild === "number") {
-        // TODO Text
+        // Text nodes don't have keys, simply replace it
         if (key !== null) {
             return null;
         }
