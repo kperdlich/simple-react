@@ -26,7 +26,7 @@ const commitMutationEffectsOnFiber = (finishedWork: Fiber, root: RootFiber) => {
                 const updatePayload = finishedWork.updateQueue;
                 finishedWork.updateQueue = null;
                 if (updatePayload) {
-                    updateDOMProperties(finishedWork.stateNode as HTMLElement, updatePayload as any, type, oldProps, newProps);
+                    updateDOMProperties(finishedWork.stateNode as HTMLElement, updatePayload as any[], type, oldProps, newProps);
                 }
             }
             return;
