@@ -1,4 +1,5 @@
-"Simplfied" React Fiber implementation using TypeScript (For educational purposes)
+"Simplified" React Fiber implementation using TypeScript (For educational purposes)
+
 [Miro Board](https://miro.com/app/board/uXjVOn0k8Dw=/)
 
 
