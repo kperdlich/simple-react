@@ -1,8 +1,5 @@
 "Simplified" React Fiber implementation using TypeScript (For educational purposes)
 
-[Miro Board](https://miro.com/app/board/uXjVOn0k8Dw=/)
-
-
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
